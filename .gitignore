@@ -10,6 +10,7 @@ bin/**
 .DS_Store
 
 ### BOXLANG ###
+/docs/
 /libs/
 src/test/resources/libs/*
 src/test/resources/modules/*
