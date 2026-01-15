@@ -1,3 +1,4 @@
+import java:org.apache.commons.text.StringEscapeUtils;
 /**
  * BoxLang Component Which Generates a Dynamic Div Element
  *
@@ -9,7 +10,6 @@
 @RequiresBody( false )
 class{
 
-	import java:org.apache.commons.text.StringEscapeUtils;
 
 	/**
 	 * The Div UI component
