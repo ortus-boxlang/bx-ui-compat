@@ -4,12 +4,12 @@
  * This component implements the functionality of the BoxLang GridRow component,
  * defining individual rows within Grid components when not using query data.
  */
+import GridColumn;
+
 @BoxComponent( "GridRow" )
 @AllowsBody( true )
 @RequiresBody( false )
 class{
-
-	import GridColumn;
 
 	variables.gridComponentName = "Grid";
 
