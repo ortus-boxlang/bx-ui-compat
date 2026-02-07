@@ -29,8 +29,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testBasicOnLoad() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("initPage");
-		    result = getBoxContext().getBuffer().toString();
+		    result = ajaxOnLoad( "initPage", true );
 		    """,
 		    context
 		);
@@ -49,9 +48,8 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testDOMReadyStateHandling() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("myFunction");
-		    result = getBoxContext().getBuffer().toString();
-		    """,
+		    result = ajaxOnLoad("myFunction", true);
+		     """,
 		    context
 		);
 
@@ -67,8 +65,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testFunctionExistenceCheck() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("validateForm");
-		    result = getBoxContext().getBuffer().toString();
+		    result = ajaxOnLoad("validateForm", true);
 		    """,
 		    context
 		);
@@ -129,12 +126,12 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testValidFunctionNames() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("validFunction");
-		    ajaxOnLoad("_privateFunction");
-		    ajaxOnLoad("$jquery");
-		    ajaxOnLoad("func123");
-		    result = getBoxContext().getBuffer().toString();
-		    """,
+		    result = "";
+		       result &= ajaxOnLoad("validFunction", true);
+		       result &= ajaxOnLoad("_privateFunction", true);
+		       result &= ajaxOnLoad("$jquery", true);
+		       result &= ajaxOnLoad("func123", true);
+		       """,
 		    context
 		);
 
@@ -181,8 +178,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testNamedParameters() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad(functionName="startApp");
-		    result = getBoxContext().getBuffer().toString();
+		    result = ajaxOnLoad(functionName="startApp", testMode=true );
 		    """,
 		    context
 		);
@@ -192,7 +188,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "typeof startApp === 'function'" );
 	}
 
-	@DisplayName( "It returns empty string" )
+	@DisplayName( "It returns a null by default" )
 	@Test
 	public void testReturnValue() {
 		runtime.executeSource(
@@ -203,7 +199,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 		);
 
 		String returnValue = variables.getAsString( Key.of( "returnValue" ) );
-		assertThat( returnValue ).isEmpty();
+		assertThat( returnValue ).isNull();
 	}
 
 	@DisplayName( "It can be called multiple times" )
@@ -211,10 +207,10 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testMultipleCalls() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("func1");
-		    ajaxOnLoad("func2");
-		    result = getBoxContext().getBuffer().toString();
-		    """,
+		    result = "";
+		          result &= ajaxOnLoad("func1", true);
+		          result &= ajaxOnLoad("func2", true);
+		          """,
 		    context
 		);
 
@@ -231,8 +227,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testSelfExecutingFunction() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("initialize");
-		    result = getBoxContext().getBuffer().toString();
+		    result = ajaxOnLoad("initialize", true);
 		    """,
 		    context
 		);
@@ -247,8 +242,7 @@ public class AjaxOnLoadTest extends BaseIntegrationTest {
 	public void testSpecialCharacterFunctionNames() {
 		runtime.executeSource(
 		    """
-		    ajaxOnLoad("_init_app_$");
-		    result = getBoxContext().getBuffer().toString();
+		    result = ajaxOnLoad("_init_app_$", true);
 		    """,
 		    context
 		);
