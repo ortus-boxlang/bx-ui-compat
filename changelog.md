@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [] - 2026-01-15
+### Fixed
+
+- Boxlang v1.10.0 compat
+
+## [1.0.1] - 2026-01-15
+
+### Fixed
+
+- Fixed import location
 
 ## [1.0.0] - 2025-10-23
 
