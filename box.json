@@ -11,7 +11,7 @@
 	},
 	"bugs": "https://ortussolutions.atlassian.net/browse/BLMODULES",
 	"slug": "bx-ui-compat",
-	"shortDescription": "CMFL Compatibility UI components module for BoxLang",
+	"shortDescription": "CFML Compatibility UI components module for BoxLang",
 	"type": "boxlang-modules",
 	"keywords": ["boxlang"],
 	"boxlang": {
