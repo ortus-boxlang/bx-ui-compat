@@ -97,7 +97,7 @@ public class GridTest extends BaseIntegrationTest {
 		        name="behaviorGrid"
 		        sortable="true"
 		        editable="true"
-		        selectMode="multi"
+		        selectMode="row"
 		        pageSize="50"
 		        stripeRows="false" {
 		        bx:gridcolumn name="id";
@@ -112,7 +112,7 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "bx-grid-editable" );
 		assertThat( output ).contains( "data-sortable=\"true\"" );
 		assertThat( output ).contains( "data-editable=\"true\"" );
-		assertThat( output ).contains( "data-select-mode=\"multi\"" );
+		assertThat( output ).contains( "data-select-mode=\"row\"" );
 		assertThat( output ).contains( "data-page-size=\"50\"" );
 		assertThat( output ).doesNotContain( "bx-grid-striped" );
 	}
@@ -249,12 +249,12 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "Jane" );
 	}
 
-	@DisplayName( "It generates selection columns for multi-select mode" )
+	@DisplayName( "It generates selection columns for all (multi) select mode" )
 	@Test
 	public void testGridMultiSelect() {
 		runtime.executeSource(
 		    """
-		    bx:grid name="multiSelectGrid" selectMode="multi" {
+		    bx:grid name="multiSelectGrid" selectMode="all" {
 		        bx:gridcolumn name="name" header="Name";
 		    }
 		    result = getBoxContext().getBuffer().toString()
@@ -264,17 +264,17 @@ public class GridTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "bx-grid-select-header" );
-		// In multi select mode, should have select-all checkbox in header
+		// In "all" select mode, should have select-all checkbox in header
 		assertThat( output ).contains( "<input type=\"checkbox\" class=\"bx-grid-select-all\"" );
 		assertThat( output ).contains( "type=\"checkbox\"" );
 	}
 
-	@DisplayName( "It generates selection columns for single-select mode" )
+	@DisplayName( "It generates selection columns for row select mode (radio)" )
 	@Test
 	public void testGridSingleSelect() {
 		runtime.executeSource(
 		    """
-		    bx:grid name="singleSelectGrid" selectMode="single" {
+		    bx:grid name="singleSelectGrid" selectMode="row" {
 		        bx:gridcolumn name="name" header="Name";
 		    }
 		    result = getBoxContext().getBuffer().toString()
@@ -284,18 +284,19 @@ public class GridTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "bx-grid-select-header" );
-		// In single select mode, should use radio buttons, not checkboxes
+		// In "row" select mode, should use radio buttons for single-row selection
 		assertThat( output ).contains( "type=\"radio\"" );
-		// Should not contain select-all checkbox in the header HTML
+		// Should not contain select-all checkbox in the header
 		assertThat( output ).doesNotContain( "<input type=\"checkbox\" class=\"bx-grid-select-all\"" );
 	}
 
-	@DisplayName( "It does not generate selection columns for none mode" )
+	@DisplayName( "It does not generate selection columns for browse/single/column/edit modes" )
 	@Test
-	public void testGridNoSelect() {
+	public void testGridNoSelectColumn() {
+		// "browse" mode should have no selection column
 		runtime.executeSource(
 		    """
-		    bx:grid name="noSelectGrid" selectMode="none" {
+		    bx:grid name="browseGrid" selectMode="browse" {
 		        bx:gridcolumn name="name" header="Name";
 		    }
 		    result = getBoxContext().getBuffer().toString()
@@ -304,9 +305,29 @@ public class GridTest extends BaseIntegrationTest {
 		);
 
 		String output = variables.getAsString( Key.of( "result" ) );
-		// Should not generate any selection headers or controls in none mode
 		assertThat( output ).doesNotContain( "<th class=\"bx-grid-select-header\"" );
 		assertThat( output ).doesNotContain( "<td class=\"bx-grid-select-cell\"" );
+	}
+
+	@DisplayName( "It applies bx-grid-select-mode CSS class for each selectMode" )
+	@Test
+	public void testGridSelectModeClass() {
+		for ( String mode : new String[] { "edit", "row", "single", "column", "browse", "all" } ) {
+			runtime.executeSource(
+			    String.format(
+			        """
+			        bx:grid name="modeGrid" selectMode="%s" {
+			            bx:gridcolumn name="name";
+			        }
+			        result = getBoxContext().getBuffer().toString()
+			        """,
+			        mode
+			    ),
+			    context
+			);
+			String output = variables.getAsString( Key.of( "result" ) );
+			assertThat( output ).contains( "bx-grid-select-mode-" + mode );
+		}
 	}
 
 	@DisplayName( "It generates pagination when pageSize is set" )
@@ -474,7 +495,7 @@ public class GridTest extends BaseIntegrationTest {
 		);
 
 		String output = variables.getAsString( Key.of( "result" ) );
-		assertThat( output ).contains( "data-select-mode=\"multi\"" );
+		assertThat( output ).contains( "data-select-mode=\"all\"" );
 		assertThat( output ).contains( "type=\"checkbox\"" );
 	}
 

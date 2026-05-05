@@ -129,7 +129,7 @@ class{
 		// Generate the HTML for this row using the columns from the parent grid
 		var gridColumns = gridParentState.columns ?: [];
 		var gridState = {
-			"selectMode" : gridParentState.selectMode ?: "single",
+			"selectMode" : gridParentState.selectMode ?: "all",
 			"gridName" : gridParentState.gridName ?: "grid"
 		};
 		rowDataStruct.html = generateRowHTML( rowDataStruct, gridColumns, gridState );
@@ -177,9 +177,9 @@ class{
 		rowHTML &= ">";
 
 		// Add selection cell if grid supports selection
-		var selectMode = gridState.selectMode ?: "single";
-		if( selectMode != "none" ){
-			var selectType = selectMode == "multi" ? "checkbox" : "radio";
+		var selectMode = gridState.selectMode ?: "all";
+		if( selectMode == "row" || selectMode == "all" ){
+			var selectType = selectMode == "all" ? "checkbox" : "radio";
 			var gridName = gridState.gridName ?: "grid";
 			var checkedAttr = rowData.selected ? " checked" : "";
 

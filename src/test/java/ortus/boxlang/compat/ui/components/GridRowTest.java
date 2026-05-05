@@ -178,7 +178,7 @@ public class GridRowTest extends BaseIntegrationTest {
 	public void testGridRowWithSelection() {
 		runtime.executeSource(
 		    """
-		    bx:grid name="selectableRowGrid" selectMode="multi" {
+		    bx:grid name="selectableRowGrid" selectMode="all" {
 		        bx:gridcolumn name="name";
 		        bx:gridrow data="#{ name: 'Selectable Row 1' }#";
 		        bx:gridrow data="#{ name: 'Selectable Row 2' }#" selected="true";

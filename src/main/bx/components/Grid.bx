@@ -29,7 +29,7 @@ class{
 	 * @attribute.width - string, optional - Grid width (CSS value)
 	 * @attribute.stripeRows - boolean, optional - Alternate row colors (default: true)
 	 * @attribute.showHeaders - boolean, optional - Show column headers (default: true)
-	 * @attribute.selectMode - string, optional - Row selection mode: none, single, multi (default: single)
+	 * @attribute.selectMode - string, optional - Selection mode for items in the grid: edit, row, single, column, browse, all (default: all). edit=user can edit grid data by selecting a cell; row=selections extend to the containing row; single=selections limited to the selected cell; column=selections extend to the containing column; browse=user can only browse; all=all selection types enabled
 	 * @attribute.onLoad - string, optional - JavaScript function called when grid loads
 	 * @attribute.onEdit - string, optional - JavaScript function called when cell is edited
 	 * @attribute.onSort - string, optional - JavaScript function called when column is sorted
@@ -108,7 +108,7 @@ class{
 		param attributes.width = "";
 		param attributes.stripeRows = true;
 		param attributes.showHeaders = true;
-		param attributes.selectMode = "none";
+		param attributes.selectMode = "all";
 		param attributes.onLoad = "";
 		param attributes.onEdit = "";
 		param attributes.onSort = "";
@@ -160,7 +160,7 @@ class{
 		param attributes.visible = true;
 
 		// Validate selectMode attribute
-		var validSelectModes = [ "none", "single", "multi" ];
+		var validSelectModes = [ "edit", "row", "single", "column", "browse", "all" ];
 		if( !validSelectModes.containsNoCase( attributes.selectMode ) ){
 			throw(
 				type		= "boxlang.compat.ui.InvalidAttributeException",
@@ -186,9 +186,12 @@ class{
 			);
 		}
 
-		// Handle multirowselect mapping to selectMode
-		if( attributes.multirowselect ){
-			attributes.selectMode = "multi";
+		// Handle multirowselect mapping to selectMode: multi-row implies "all" selection
+		if( attributes.multirowselect && attributes.selectMode == "all" ){
+			// multirowselect is a legacy alias - "all" already enables multi-row selection
+			attributes.selectMode = "all";
+		} else if( attributes.multirowselect ){
+			attributes.selectMode = "all";
 		}
 
 		// Generate unique ID if not provided
@@ -230,7 +233,7 @@ class{
 			cssClasses.append( "bx-grid-sortable" );
 		}
 
-		if( attributes.editable ){
+		if( attributes.editable || lcase( attributes.selectMode ) == "edit" ){
 			cssClasses.append( "bx-grid-editable" );
 		}
 
@@ -254,6 +257,9 @@ class{
 		if( len( attributes.gridDataAlign ) ){
 			cssClasses.append( "bx-grid-align-#lcase( attributes.gridDataAlign )#" );
 		}
+
+		// Add select mode class
+		cssClasses.append( "bx-grid-select-mode-#lcase( attributes.selectMode )#" );
 
 		// Add custom classes if provided
 		if( !isNull( attributes.class ) && len( attributes.class ) ){
@@ -420,9 +426,10 @@ class{
 	private function generateGridHeaders( required attributes, required executionState ){
 		var headContent = "<thead class=""bx-grid-header""><tr>";
 
-		// Add selection column if needed
-		if( executionState.selectMode != "none" ){
-			var selectType = executionState.selectMode == "multi" ? "checkbox" : "radio";
+		// Add selection column if needed (only for row and all modes)
+		if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
+			// "all" uses checkbox for multi-row; "row" uses radio for single-row
+			var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
 			headContent &= "<th class=""bx-grid-select-header"">";
 			headContent &= "<input type=""#selectType#"" class=""bx-grid-select-all"" />";
 			headContent &= "</th>";
@@ -496,9 +503,9 @@ class{
 			for( var i = startRow; i <= endRow; i++ ){
 				rowsContent &= "<tr class=""bx-grid-row"" data-row=""#i#"">";
 
-				// Add selection column if needed
-				if( executionState.selectMode != "none" ){
-					var selectType = executionState.selectMode == "multi" ? "checkbox" : "radio";
+				// Add selection column only for row and all modes
+				if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
+					var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
 					rowsContent &= "<td class=""bx-grid-select-cell"">";
 					rowsContent &= "<input type=""#selectType#"" name=""#executionState.gridName#_select"" value=""#i#"" />";
 					rowsContent &= "</td>";
@@ -511,12 +518,14 @@ class{
 						cellValue = query.getCell( column.name, i );
 					}
 
-					rowsContent &= "<td class=""bx-grid-cell""";
+					// Cell is editable if: column.editable, global editable=true, or selectMode=edit
+					var cellEditable = column.editable || executionState.selectMode == "edit";
+
+					rowsContent &= "<td class=""bx-grid-cell#cellEditable ? ' bx-grid-editable-cell' : ''#""";
 					rowsContent &= " data-column=""#encodeForHTMLAttribute( column.name )#""";
 
-					if( column.editable ){
+					if( cellEditable ){
 						rowsContent &= " contenteditable=""true""";
-						rowsContent &= " class=""bx-grid-cell bx-grid-editable-cell""";
 					}
 
 					rowsContent &= ">";
@@ -537,9 +546,9 @@ class{
 				// Fallback to basic row generation for backward compatibility
 				rowsContent &= "<tr class=""bx-grid-row"">";
 
-				// Add selection column if needed
-				if( executionState.selectMode != "none" ){
-					var selectType = executionState.selectMode == "multi" ? "checkbox" : "radio";
+				// Add selection column only for row and all modes
+				if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
+					var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
 					rowsContent &= "<td class=""bx-grid-select-cell"">";
 					rowsContent &= "<input type=""#selectType#"" name=""#executionState.gridName#_select"" />";
 					rowsContent &= "</td>";
@@ -548,13 +557,13 @@ class{
 				// Generate data cells from row data
 				for( var column in columns ){
 					var cellValue = row[ column.name ] ?: "";
+					var cellEditable = column.editable || executionState.selectMode == "edit";
 
-					rowsContent &= "<td class=""bx-grid-cell""";
+					rowsContent &= "<td class=""bx-grid-cell#cellEditable ? ' bx-grid-editable-cell' : ''#""";
 					rowsContent &= " data-column=""#encodeForHTMLAttribute( column.name )#""";
 
-					if( column.editable ){
+					if( cellEditable ){
 						rowsContent &= " contenteditable=""true""";
-						rowsContent &= " class=""bx-grid-cell bx-grid-editable-cell""";
 					}
 
 					rowsContent &= ">";
@@ -650,7 +659,10 @@ class{
 	 * Generate grid behavior script
 	 */
 	private function generateGridBehaviorScript( required attributes, required executionState ){
+		var selectMode = lcase( executionState.selectMode );
 		return "
+			var selectMode = '#selectMode#';
+
 			// Grid event handlers
 			grid.addEventListener('click', function(e) {
 				// Handle column sorting
@@ -666,14 +678,33 @@ class{
 					goToPage(page);
 				}
 
-				// Handle select all
+				// Handle select all checkbox (row/all modes only)
 				if (e.target.classList.contains('bx-grid-select-all')) {
 					toggleSelectAll(e.target.checked);
 				}
+
+				// Handle cell/row/column selection based on selectMode
+				var cell = e.target.closest('.bx-grid-cell');
+				if (cell && selectMode !== 'browse') {
+					handleSelection(cell, e);
+				}
 			});
 
-			// Handle cell editing
-			if (grid.dataset.editable === 'true') {
+			// Handle cell editing: enabled for selectMode 'edit', or when editable attribute is true
+			var isEditable = grid.dataset.editable === 'true' || selectMode === 'edit';
+			if (isEditable) {
+				// In 'edit' mode, clicking a cell activates inline editing
+				if (selectMode === 'edit') {
+					grid.addEventListener('click', function(e) {
+						var cell = e.target.closest('.bx-grid-cell');
+						if (cell && !cell.getAttribute('contenteditable')) {
+							cell.setAttribute('contenteditable', 'true');
+							cell.classList.add('bx-grid-editable-cell');
+							cell.focus();
+						}
+					});
+				}
+
 				grid.addEventListener('blur', function(e) {
 					if (e.target.classList.contains('bx-grid-editable-cell')) {
 						var column = e.target.dataset.column;
@@ -690,6 +721,51 @@ class{
 						grid.dispatchEvent(event);
 					}
 				}, true);
+			}
+
+			function handleSelection(cell, event) {
+				// Clear previous selections
+				grid.querySelectorAll('.bx-grid-cell-selected, .bx-grid-row-selected, .bx-grid-col-selected').forEach(function(el) {
+					el.classList.remove('bx-grid-cell-selected', 'bx-grid-row-selected', 'bx-grid-col-selected');
+				});
+
+				var column = cell.dataset.column;
+				var row = cell.closest('.bx-grid-row');
+
+				if (selectMode === 'single') {
+					// Highlight only the clicked cell
+					cell.classList.add('bx-grid-cell-selected');
+				} else if (selectMode === 'row') {
+					// Highlight the entire row
+					row.classList.add('bx-grid-row-selected');
+					row.querySelectorAll('.bx-grid-cell').forEach(function(c) {
+						c.classList.add('bx-grid-cell-selected');
+					});
+					// Sync the radio button
+					var radio = row.querySelector('input[type=""radio""]');
+					if (radio) radio.checked = true;
+				} else if (selectMode === 'column') {
+					// Highlight all cells in the same column
+					grid.querySelectorAll('.bx-grid-cell[data-column=""' + column + '""]').forEach(function(c) {
+						c.classList.add('bx-grid-col-selected');
+					});
+					grid.querySelector('.bx-grid-column-header[data-column=""' + column + '""]')
+						.classList.add('bx-grid-col-selected');
+				} else if (selectMode === 'all') {
+					// Toggle row selection via checkbox
+					var checkbox = row.querySelector('input[type=""checkbox""]');
+					if (checkbox && !event.target.closest('.bx-grid-select-cell')) {
+						checkbox.checked = !checkbox.checked;
+					}
+					row.classList.toggle('bx-grid-row-selected', checkbox ? checkbox.checked : true);
+					cell.classList.add('bx-grid-cell-selected');
+				}
+
+				// Fire selection event
+				var selectionEvent = new CustomEvent('gridCellSelect', {
+					detail: { column: column, row: row ? row.dataset.row : null, selectMode: selectMode }
+				});
+				grid.dispatchEvent(selectionEvent);
 			}
 
 			function sortColumn(column) {
@@ -723,7 +799,7 @@ class{
 				// Find column index
 				var headers = grid.querySelectorAll('.bx-grid-column-header');
 				var columnIndex = -1;
-				var selectColumnOffset = grid.dataset.selectMode !== 'none' ? 1 : 0;
+				var selectColumnOffset = (selectMode === 'row' || selectMode === 'all') ? 1 : 0;
 
 				for (var i = 0; i < headers.length; i++) {
 					if (headers[i].dataset.column === column) {
@@ -750,14 +826,11 @@ class{
 
 					var result;
 					if (!isNaN(aNum) && !isNaN(bNum)) {
-						// Numeric sort
 						result = aNum - bNum;
 					} else {
-						// Text sort (case-insensitive)
 						result = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
 					}
 
-					// Apply sort direction
 					return direction === 'desc' ? -result : result;
 				});
 
@@ -768,8 +841,6 @@ class{
 			}
 
 			function goToPage(page) {
-				// This would typically reload grid data for the specified page
-				// Fire custom event for now
 				var event = new CustomEvent('gridPageChange', {
 					detail: { page: page }
 				});
@@ -779,6 +850,9 @@ class{
 			function toggleSelectAll(checked) {
 				grid.querySelectorAll('input[name=""#executionState.gridName#_select""]').forEach(function(cb) {
 					cb.checked = checked;
+				});
+				grid.querySelectorAll('.bx-grid-row').forEach(function(row) {
+					row.classList.toggle('bx-grid-row-selected', checked);
 				});
 			}
 
