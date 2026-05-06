@@ -5,14 +5,23 @@
 	function deliver(){
 		param name="url.target" default="";
 
+		// Decode the target to ensure our traversal checks are accurate - double decode to handle cases where the URL is double-encoded to hide unicode characters or traversal sequences
+		var targetFile = urlDecode( urlDecode( url.target ) );
+
 		// If the target is empty do a 404
-		if( len( trim( url.target ) ) EQ 0 ){
+		if( len( trim( targetFile ) ) EQ 0 ){
+			bx:header statusCode="404";
+			return;
+		}
+
+		// if the target contains "..", it's a potential path traversal attack, so we return a 404
+		if( find( url.target, ".." ) ){
 			bx:header statusCode="404";
 			return;
 		}
 
 		// Check if the target exists in the lib folder
-		var filePath = publicPath & url.target;
+		var filePath = publicPath & targetFile;
 		if( NOT fileExists( filePath ) ){
 			bx:header statusCode="404";
 			return;
@@ -20,7 +29,7 @@
 
 		// Determine the content type
 		var contentType = "application/octet-stream";
-		switch( listLast( url.target, "." ) ){
+		switch( listLast( targetFile, "." ) ){
 			case "js":
 				contentType = "application/javascript";
 				break;
