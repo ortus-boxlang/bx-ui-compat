@@ -241,4 +241,22 @@ public class AjaxImportTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "div.css" );
 		assertThat( output ).contains( "grid.css" );
 	}
+
+	@DisplayName( "It can handle a cf prefix correctly" )
+	@Test
+	public void testCfPrefixHandling() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="cfLayout-tags" {
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// Should fall back to default behavior and import common tags
+		assertThat( output ).contains( "layout.css" );
+		assertThat( output ).contains( "layout-components.css" );
+	}
 }

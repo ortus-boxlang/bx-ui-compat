@@ -4,6 +4,9 @@
  * This component implements the functionality of the ColdFusion cfajaximport tag,
  * importing JavaScript and CSS files required for BoxLang AJAX tags and features.
  */
+
+ import java.lang.System;
+
 @BoxComponent( "AjaxImport" )
 @AllowsBody( false )
 @RequiresBody( false )
@@ -61,20 +64,38 @@ class{
 		var tags = attributes.tags;
 
 		// Core BoxLang AJAX CSS
-		cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />";
+		cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />" & System.lineSeparator();
 
 		// Tag-specific CSS
+		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
+				tag = lcase( replaceNoCase( tag, "cf", "" ) ); // Remove "cf" prefix from tag names
 				var tagName = trim( tag );
-				cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#lcase(tagName)#.css"" />";
+				if( findNoCase( "layout", tagName ) ){
+					tagName = "layout"; // Normalize to "layout" since it includes multiple related CSS files
+				}
+				if( importedTags.contains( tagName ) ){
+					continue; // Skip if already imported
+				}
+				if( tagName == "layout" ){
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout.css"" />" & System.lineSeparator();
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />" & System.lineSeparator();
+					importedTags.append( "layout" );
+				} else {
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tagName#.css"" />";
+					importedTags.append( tagName );
+				}
 			}
 		} else {
 			// Import all common AJAX CSS files
 			var commonTags = [ "layout", "div", "grid", "tooltip", "pod" ];
 			for( var tag in commonTags ){
 				cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tag#.css"" />";
+				if( tag == "layout" ){
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />";
+				}
 			}
 		}
 
@@ -90,20 +111,25 @@ class{
 		var tags = attributes.tags;
 
 		// Core BoxLang AJAX JavaScript
-		jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>";
+		jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>" & System.lineSeparator();
 
 		// Tag-specific JavaScript
+		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
-				var tagName = trim( tag );
-				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>";
+				var tagName = lcase( replaceNoCase( trim( tag ), "cf", "" ) );
+				if( importedTags.contains( tagName ) ){
+					continue; // Skip if already imported
+				}
+				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>" & System.lineSeparator();
+				importedTags.append( tagName );
 			}
 		} else {
 			// Import all common AJAX JavaScript files
 			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy" ];
 			for( var tag in commonTags ){
-				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#tag#.js""></script>";
+				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#tag#.js""></script>" & System.lineSeparator();
 			}
 		}
 
