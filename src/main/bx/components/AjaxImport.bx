@@ -119,6 +119,9 @@ class{
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
 				var tagName = lcase( replaceNoCase( trim( tag ), "cf", "" ) );
+				if( findNoCase( "layout", tagName ) ){
+					tagName = "layout";
+				}
 				if( importedTags.contains( tagName ) ){
 					continue; // Skip if already imported
 				}
