@@ -50,7 +50,7 @@ BoxLangAjax.utils.fetchContent = async function (url, options = {}) {
 			const controller = new AbortController();
 			const timeoutId = setTimeout(
 				() => controller.abort(),
-				fetchOptions.timeout
+				fetchOptions.timeout,
 			);
 
 			fetchOptions.signal = controller.signal;
@@ -60,7 +60,7 @@ BoxLangAjax.utils.fetchContent = async function (url, options = {}) {
 
 			if (!response.ok) {
 				throw new Error(
-					`HTTP ${response.status}: ${response.statusText}`
+					`HTTP ${response.status}: ${response.statusText}`,
 				);
 			}
 
@@ -99,8 +99,9 @@ BoxLangAjax.utils.fetchContent = async function (url, options = {}) {
 				await new Promise((resolve) =>
 					setTimeout(
 						resolve,
-						BoxLangAjax.config.retryDelay * Math.pow(2, attempt - 1)
-					)
+						BoxLangAjax.config.retryDelay *
+							Math.pow(2, attempt - 1),
+					),
 				);
 			}
 		}
@@ -116,7 +117,7 @@ BoxLangAjax.utils.fetchContent = async function (url, options = {}) {
 BoxLangAjax.utils.loadIntoContainer = function (
 	containerId,
 	url,
-	options = {}
+	options = {},
 ) {
 	const container = document.getElementById(containerId);
 	if (!container) {
@@ -163,9 +164,9 @@ BoxLangAjax.utils.loadIntoContainer = function (
                     <div class="bx-error-title">Error loading content</div>
                     <div class="bx-error-message">${error.message}</div>
                     <div class="bx-error-retry">
-                        <button class="bx-retry-button" onclick="BoxLangAjax.utils.loadIntoContainer('${containerId}', '${url}', ${JSON.stringify(
-					options
-				).replace(/'/g, "\\'")})">
+                        <button type="button" class="bx-retry-button" onclick="BoxLangAjax.utils.loadIntoContainer('${containerId}', '${url}', ${JSON.stringify(
+							options,
+						).replace(/'/g, "\\'")})">
                             Retry
                         </button>
                     </div>

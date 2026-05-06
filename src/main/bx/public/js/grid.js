@@ -22,7 +22,7 @@
 			page = 1,
 			pageSize = 25,
 			sortColumn = "",
-			sortOrder = "asc"
+			sortOrder = "asc",
 		) {
 			const grid = document.getElementById(gridId);
 			if (!grid) {
@@ -168,7 +168,7 @@
                     <td colspan="${columnCount}" class="bx-grid-error">
                         <div class="bx-error-title">Failed to load data</div>
                         <div class="bx-error-message">${error.message}</div>
-                        <button class="bx-retry-button" onclick="BoxLangAjax.components.grid.refresh('${gridId}')">
+                        <button type="button" class="bx-retry-button" onclick="BoxLangAjax.components.grid.refresh('${gridId}')">
                             Retry
                         </button>
                     </td>
@@ -199,24 +199,24 @@
 			pagination.innerHTML = `
                 <div class="bx-pagination-info">
                     Showing ${(currentPage - 1) * pageSize + 1}-${Math.min(
-				currentPage * pageSize,
-				totalRows
-			)} of ${totalRows}
+						currentPage * pageSize,
+						totalRows,
+					)} of ${totalRows}
                 </div>
                 <div class="bx-pagination-controls">
-                    <button ${
+                    <button type="button" ${
 						currentPage <= 1 ? "disabled" : ""
 					} onclick="BoxLangAjax.components.grid.goToPage('${gridId}', ${
-				currentPage - 1
-			})">
+						currentPage - 1
+					})">
                         Previous
                     </button>
                     <span class="bx-page-info">Page ${currentPage} of ${totalPages}</span>
-                    <button ${
+                    <button type="button" ${
 						currentPage >= totalPages ? "disabled" : ""
 					} onclick="BoxLangAjax.components.grid.goToPage('${gridId}', ${
-				currentPage + 1
-			})">
+						currentPage + 1
+					})">
                         Next
                     </button>
                 </div>
@@ -239,7 +239,7 @@
 				page,
 				pageSize,
 				currentSort,
-				currentOrder
+				currentOrder,
 			);
 		},
 
@@ -267,7 +267,7 @@
 				header.classList.remove(
 					"bx-sorted-asc",
 					"bx-sorted-desc",
-					"bx-sorting"
+					"bx-sorting",
 				);
 				if (header.dataset.sort === column) {
 					header.classList.add("bx-sorting");
@@ -282,11 +282,11 @@
 				currentPage,
 				pageSize,
 				column,
-				sortOrder
+				sortOrder,
 			).then(function () {
 				// Update header after successful load
 				const sortedHeader = grid.querySelector(
-					`th[data-sort="${column}"]`
+					`th[data-sort="${column}"]`,
 				);
 				if (sortedHeader) {
 					sortedHeader.classList.remove("bx-sorting");
@@ -314,7 +314,7 @@
 				1,
 				pageSize,
 				currentSort,
-				currentOrder
+				currentOrder,
 			);
 		},
 
@@ -335,7 +335,7 @@
 				currentPage,
 				pageSize,
 				currentSort,
-				currentOrder
+				currentOrder,
 			);
 		},
 	};
@@ -364,7 +364,7 @@
 					grid.searchTimeout = setTimeout(function () {
 						BoxLangAjax.components.grid.search(
 							grid.id,
-							event.target.value
+							event.target.value,
 						);
 					}, 500);
 				}

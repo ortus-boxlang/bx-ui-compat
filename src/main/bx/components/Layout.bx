@@ -257,7 +257,7 @@ class{
 			var area = areas[i];
 			var activeClass = i == 1 ? " active" : "";
 			var tabId = !isNull( area.id ) ? area.id : "#layoutId#_tab_#i#";
-			tabHeaders &= "<button class=""bx-tab-header#activeClass#"" data-tab=""#tabId#"">#encodeForHTML( area.title ?: 'Tab #i#' )#</button>";
+			tabHeaders &= "<button type=""button"" class=""bx-tab-header#activeClass#"" data-tab=""#tabId#"">#encodeForHTML( area.title ?: 'Tab #i#' )#</button>";
 		}
 		tabHeaders &= "</div>";
 

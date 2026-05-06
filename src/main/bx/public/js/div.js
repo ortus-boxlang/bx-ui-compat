@@ -52,7 +52,7 @@
 			const url = div.dataset.source || div.dataset.refreshUrl;
 			if (!url) {
 				console.error(
-					"No refresh URL found for auto-refresh div: " + divId
+					"No refresh URL found for auto-refresh div: " + divId,
 				);
 				return;
 			}
@@ -137,7 +137,7 @@
                             <div class="bx-error-title">Failed to load content</div>
                             <div class="bx-error-message">${error.message}</div>
                             <div class="bx-error-retry">
-                                <button onclick="BoxLangAjax.components.div.loadWithOverlay('${divId}', '${url}')">
+                                <button type="button" onclick="BoxLangAjax.components.div.loadWithOverlay('${divId}', '${url}')">
                                     Retry
                                 </button>
                             </div>
@@ -243,7 +243,7 @@
 					}
 				}
 			},
-			true
+			true,
 		);
 	}
 
@@ -261,7 +261,7 @@
 						if (loadType === "overlay") {
 							BoxLangAjax.components.div.loadWithOverlay(
 								div.id,
-								url
+								url,
 							);
 						} else {
 							BoxLangAjax.utils.loadIntoContainer(div.id, url);

@@ -600,7 +600,7 @@ class{
 
 		// Previous button
 		if( currentPage > 1 ){
-			paginationContent &= "<button class=""bx-grid-page-btn"" data-page=""#currentPage - 1#"">&laquo; Previous</button>";
+			paginationContent &= "<button type=""button"" class=""bx-grid-page-btn"" data-page=""#currentPage - 1#"">&laquo; Previous</button>";
 		}
 
 		// Page numbers
@@ -609,12 +609,12 @@ class{
 
 		for( var i = startPage; i <= endPage; i++ ){
 			var activeClass = i == currentPage ? " active" : "";
-			paginationContent &= "<button class=""bx-grid-page-btn#activeClass#"" data-page=""#i#"">#i#</button>";
+			paginationContent &= "<button type=""button"" class=""bx-grid-page-btn#activeClass#"" data-page=""#i#"">#i#</button>";
 		}
 
 		// Next button
 		if( currentPage < totalPages ){
-			paginationContent &= "<button class=""bx-grid-page-btn"" data-page=""#currentPage + 1#"">Next &raquo;</button>";
+			paginationContent &= "<button type=""button"" class=""bx-grid-page-btn"" data-page=""#currentPage + 1#"">Next &raquo;</button>";
 		}
 
 		paginationContent &= "</div>";

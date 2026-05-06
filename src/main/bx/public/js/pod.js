@@ -82,7 +82,7 @@
                             <div class="bx-error-title">Failed to refresh content</div>
                             <div class="bx-error-message">${error.message}</div>
                             <div class="bx-error-retry">
-                                <button class="bx-retry-button" onclick="BoxLangAjax.components.pod.refresh('${podId}')">
+                                <button type="button" class="bx-retry-button" onclick="BoxLangAjax.components.pod.refresh('${podId}')">
                                     Retry
                                 </button>
                             </div>
@@ -135,7 +135,7 @@
 			const url = pod.dataset.source || pod.dataset.refreshUrl;
 			if (!url) {
 				console.error(
-					"No refresh URL found for auto-refresh pod: " + podId
+					"No refresh URL found for auto-refresh pod: " + podId,
 				);
 				return;
 			}
@@ -298,7 +298,7 @@
 					BoxLangAjax.components.pod.resize(
 						pod.id,
 						Math.max(200, newWidth),
-						Math.max(100, newHeight)
+						Math.max(100, newHeight),
 					);
 				}
 
@@ -328,7 +328,7 @@
 							.catch(function (error) {
 								console.error(
 									"Failed to auto-load pod content:",
-									error
+									error,
 								);
 							});
 					}, delay);
