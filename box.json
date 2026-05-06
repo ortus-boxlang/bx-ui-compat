@@ -25,6 +25,9 @@
 			"URL": "https://www.apache.org/licenses/LICENSE-2.0"
 		}
 	],
+	"dependencies": {
+		"bx-esapi": "*"
+	},
 	"devDependencies": {
 		"commandbox-boxlang": "*",
 		"commandbox-cfformat": "*",
