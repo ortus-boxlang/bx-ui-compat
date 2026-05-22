@@ -130,7 +130,7 @@ class{
 			}
 		} else {
 			// Import all common AJAX JavaScript files
-			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy" ];
+			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy", "window" ];
 			for( var tag in commonTags ){
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#tag#.js""></script>" & System.lineSeparator();
 			}
