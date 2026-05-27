@@ -14,6 +14,9 @@
 
 	// Tooltip-specific AJAX utilities
 	BoxLangAjax.components.tooltip = {
+		/** @type {Map<string, AbortController>} Track in-flight tooltip fetches */
+		_controllers: new Map(),
+
 		/**
 		 * Load content for a tooltip
 		 */
@@ -22,16 +25,25 @@
 			if (!tooltip) {
 				console.error("Tooltip not found: " + tooltipId);
 				return Promise.reject(
-					new Error("Tooltip not found: " + tooltipId)
+					new Error("Tooltip not found: " + tooltipId),
 				);
 			}
+
+			// Cancel any previous in-flight fetch for this tooltip
+			var prevController = this._controllers.get(tooltipId);
+			if (prevController) prevController.abort();
+			var controller = new AbortController();
+			this._controllers.set(tooltipId, controller);
 
 			// Show loading state
 			tooltip.innerHTML = '<div class="bx-loading">Loading...</div>';
 			tooltip.classList.add("bx-ajax-loading");
 
 			return BoxLangAjax.utils
-				.fetchContent(url, { timeout: 10000 }) // Shorter timeout for tooltips
+				.fetchContent(url, {
+					timeout: 10000,
+					signal: controller.signal,
+				})
 				.then(function (content) {
 					tooltip.innerHTML = content;
 					tooltip.classList.remove("bx-ajax-loading");
@@ -54,7 +66,11 @@
 					return content;
 				})
 				.catch(function (error) {
-					tooltip.innerHTML = `<div class="bx-source-error">Error: ${error.message}</div>`;
+					// Silently ignore aborted requests (tooltip was hidden)
+					if (error.name === "AbortError") return;
+
+					var esc = BoxLangAjax.utils.escapeHTML;
+					tooltip.innerHTML = `<div class="bx-source-error">Error: ${esc(error.message)}</div>`;
 					tooltip.classList.remove("bx-ajax-loading");
 					tooltip.classList.add("bx-ajax-error");
 
@@ -118,7 +134,7 @@
 				console.error(
 					"Trigger or tooltip not found:",
 					triggerId,
-					tooltipId
+					tooltipId,
 				);
 				return Promise.reject(new Error("Elements not found"));
 			}
@@ -142,11 +158,18 @@
 		},
 
 		/**
-		 * Hide tooltip
+		 * Hide tooltip and abort any in-flight fetch
 		 */
 		hide: function (tooltipId, delay = 300) {
 			const tooltip = document.getElementById(tooltipId);
 			if (!tooltip) return;
+
+			// Abort any in-flight content fetch
+			var controller = this._controllers.get(tooltipId);
+			if (controller) {
+				controller.abort();
+				this._controllers.delete(tooltipId);
+			}
 
 			setTimeout(function () {
 				tooltip.style.display = "none";
@@ -177,7 +200,7 @@
 					BoxLangAjax.components.tooltip.show(
 						triggerId,
 						tooltipId,
-						url
+						url,
 					);
 				}, showDelay);
 			});
@@ -201,7 +224,7 @@
 					hideTimer = setTimeout(function () {
 						BoxLangAjax.components.tooltip.hide(
 							tooltipId,
-							hideDelay
+							hideDelay,
 						);
 					}, hideDelay);
 				});
@@ -231,7 +254,7 @@
 					BoxLangAjax.components.tooltip.show(
 						triggerId,
 						tooltipId,
-						url
+						url,
 					);
 				}
 			});
@@ -275,7 +298,7 @@
 						{
 							showDelay: showDelay,
 							hideDelay: hideDelay,
-						}
+						},
 					);
 				}
 			});
@@ -291,7 +314,7 @@
 					BoxLangAjax.components.tooltip.setupClick(
 						trigger.id,
 						tooltipId,
-						url
+						url,
 					);
 				}
 			});
@@ -313,7 +336,7 @@
 								.catch(function (error) {
 									console.error(
 										"Tooltip auto-refresh failed:",
-										error
+										error,
 									);
 								});
 						}
@@ -378,7 +401,7 @@
 							BoxLangAjax.components.tooltip.show(
 								trigger.id,
 								tooltipId,
-								url
+								url,
 							);
 						}
 					}
@@ -417,4 +440,14 @@
 	} else {
 		initTooltipAjax();
 	}
+
+	// -------------------------------------------------------------------
+	// BXUICompat.Tooltip facade
+	// -------------------------------------------------------------------
+	window.BXUICompat = window.BXUICompat || {};
+	window.BXUICompat.Tooltip = {
+		loadContent: function (tooltipId, url) {
+			return BoxLangAjax.components.tooltip.loadContent(tooltipId, url);
+		},
+	};
 })();

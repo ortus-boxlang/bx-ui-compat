@@ -1,201 +1,330 @@
 /**
- * BoxLang Grid Component AJAX CSS
- * Styles for AJAX functionality in grid components
+ * BoxLang Grid Component CSS
+ * Clean datatable-inspired theme for <bx:grid> components
  */
 
-/* Grid AJAX loading states */
+/* ===== Base Grid Container ===== */
+.bx-grid {
+	position: relative;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	overflow: auto;
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+	line-height: 1.4;
+	color: #333;
+	background: #fff;
+}
+
+/* ===== Table ===== */
+.bx-grid-table {
+	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+/* ===== Header ===== */
+.bx-grid-header {
+	background-color: #f9f9f9;
+	border-bottom: 2px solid #ddd;
+}
+
+.bx-grid-header th {
+	padding: 10px 12px;
+	text-align: left;
+	font-weight: 600;
+	color: #555;
+	white-space: nowrap;
+	border-right: 1px solid #eee;
+	vertical-align: middle;
+}
+
+.bx-grid-header th:last-child {
+	border-right: none;
+}
+
+/* ===== Body Rows ===== */
+.bx-grid-body .bx-grid-row {
+	border-bottom: 1px solid #eee;
+	transition: background-color 0.15s ease;
+}
+
+.bx-grid-body .bx-grid-row:last-child {
+	border-bottom: none;
+}
+
+.bx-grid-body .bx-grid-row:hover {
+	background-color: #f5f5f5;
+}
+
+/* Striped rows */
+.bx-grid-striped .bx-grid-body .bx-grid-row:nth-child(even) {
+	background-color: #fafafa;
+}
+
+.bx-grid-striped .bx-grid-body .bx-grid-row:nth-child(even):hover {
+	background-color: #f0f0f0;
+}
+
+/* ===== Cells ===== */
+.bx-grid-cell {
+	padding: 8px 12px;
+	vertical-align: middle;
+	border-right: 1px solid #f0f0f0;
+}
+
+.bx-grid-cell:last-child {
+	border-right: none;
+}
+
+/* Data alignment */
+.bx-grid-align-center .bx-grid-cell {
+	text-align: center;
+}
+
+.bx-grid-align-right .bx-grid-cell {
+	text-align: right;
+}
+
+/* ===== Selection ===== */
+
+/* Hide the actual radio/checkbox inputs — selection is driven by row click */
+.bx-grid-select-header,
+.bx-grid-select-cell {
+	width: 0;
+	padding: 0;
+	border: none;
+	overflow: hidden;
+	visibility: hidden;
+	position: absolute;
+	left: -9999px;
+}
+
+/* Selected row highlight */
+.bx-grid-row.bx-grid-row-selected {
+	background-color: #e2ecf7 !important;
+}
+
+.bx-grid-row.bx-grid-row-selected:hover {
+	background-color: #d4e2f4 !important;
+}
+
+/* Cell-level selection (single/edit mode) */
+.bx-grid-cell.bx-grid-cell-selected {
+	background-color: #e2ecf7;
+	outline: 2px solid #4a90d9;
+	outline-offset: -2px;
+}
+
+/* Column selection */
+.bx-grid-col-selected {
+	background-color: #eef4fc;
+}
+
+/* ===== Sorting ===== */
+.bx-grid-sortable .bx-grid-column-header {
+	cursor: pointer;
+	user-select: none;
+	position: relative;
+	padding-right: 24px;
+}
+
+.bx-grid-sortable .bx-grid-column-header:hover {
+	background-color: #f0f0f0;
+}
+
+.bx-grid-sort-indicator::after {
+	content: "\2195"; /* ↕ */
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: #bbb;
+	font-size: 12px;
+}
+
+.bx-grid-sorted.bx-grid-sort-asc .bx-grid-sort-indicator::after {
+	content: "\2191"; /* ↑ */
+	color: #333;
+}
+
+.bx-grid-sorted.bx-grid-sort-desc .bx-grid-sort-indicator::after {
+	content: "\2193"; /* ↓ */
+	color: #333;
+}
+
+/* ===== Editable cells ===== */
+.bx-grid-editable .bx-grid-editable-cell {
+	cursor: text;
+}
+
+.bx-grid-editable .bx-grid-editable-cell:focus {
+	outline: 2px solid #4a90d9;
+	outline-offset: -2px;
+	background-color: #fff;
+}
+
+/* ===== Pagination ===== */
+.bx-grid-pagination {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 12px;
+	background-color: #f9f9f9;
+	border-top: 1px solid #ddd;
+	font-size: 13px;
+	color: #666;
+}
+
+.bx-grid-pagination button {
+	padding: 5px 12px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	background: #fff;
+	color: #333;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.bx-grid-pagination button:hover:not(:disabled) {
+	background-color: #f0f0f0;
+	border-color: #aaa;
+}
+
+.bx-grid-pagination button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* ===== Collapsible ===== */
+.bx-grid-collapsible > .bx-grid-table {
+	transition: max-height 0.3s ease;
+	overflow: hidden;
+}
+
+/* ===== Disabled state ===== */
+.bx-grid-disabled {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+/* ===== AJAX Loading States ===== */
 .bx-grid .bx-loading {
-    text-align: center;
-    padding: 20px;
-    background-color: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    margin: 10px 0;
+	text-align: center;
+	padding: 20px;
+	color: #666;
 }
 
 .bx-grid .bx-loading-row {
-    height: 40px;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: bx-grid-loading 1.5s infinite;
-    margin: 2px 0;
-    border-radius: 3px;
+	height: 36px;
+	background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+	background-size: 200% 100%;
+	animation: bx-grid-loading 1.5s infinite;
+	margin: 2px 0;
+	border-radius: 3px;
 }
 
 @keyframes bx-grid-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
 }
 
-/* Grid pagination AJAX */
-.bx-grid .bx-grid-pagination {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background-color: #f5f5f5;
-    border-top: 1px solid #ddd;
+/* Row update flash */
+.bx-grid-body .bx-grid-row.bx-updating {
+	background-color: #fff3cd;
 }
 
-.bx-grid .bx-grid-pagination .bx-loading {
-    padding: 5px 10px;
-    margin: 0;
-    background: none;
-    border: none;
-    font-size: 0.9em;
-}
-
-/* Grid row AJAX updates */
-.bx-grid tbody tr.bx-updating {
-    background-color: #fff3cd;
-    transition: background-color 0.3s ease;
-}
-
-.bx-grid tbody tr.bx-updated {
-    background-color: #d4edda;
-    animation: bx-grid-update-flash 2s ease-out;
+.bx-grid-body .bx-grid-row.bx-updated {
+	animation: bx-grid-update-flash 2s ease-out;
 }
 
 @keyframes bx-grid-update-flash {
-    0% { background-color: #d4edda; }
-    100% { background-color: transparent; }
+	0% {
+		background-color: #d4edda;
+	}
+	100% {
+		background-color: transparent;
+	}
 }
 
-/* Grid sorting AJAX indicators */
-.bx-grid th[data-sort] {
-    cursor: pointer;
-    position: relative;
-    user-select: none;
-}
-
-.bx-grid th[data-sort].bx-sorting::after {
-    content: "";
-    position: absolute;
-    right: 5px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 12px;
-    height: 12px;
-    background: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"><animate attributeName="r" values="2;4;2" dur="1s" repeatCount="indefinite"/></circle></svg>') no-repeat center;
-    background-size: contain;
-}
-
-/* Grid search/filter AJAX */
-.bx-grid .bx-grid-search {
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.bx-grid .bx-grid-search input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 0.9em;
-}
-
-.bx-grid .bx-grid-search .bx-search-loading {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.8em;
-    color: #6c757d;
-}
-
-/* Grid error states */
+/* ===== Error State ===== */
 .bx-grid .bx-grid-error {
-    text-align: center;
-    padding: 30px;
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    color: #721c24;
-    margin: 10px 0;
+	text-align: center;
+	padding: 30px;
+	color: #721c24;
+	background-color: #f8d7da;
+	border-top: 1px solid #f5c6cb;
 }
 
 .bx-grid .bx-grid-error .bx-retry-button {
-    margin-top: 15px;
-    padding: 8px 16px;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+	margin-top: 12px;
+	padding: 6px 14px;
+	background-color: #dc3545;
+	color: #fff;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
 }
 
 .bx-grid .bx-grid-error .bx-retry-button:hover {
-    background-color: #c82333;
+	background-color: #c82333;
 }
 
-/* Empty grid state */
+/* ===== Empty State ===== */
 .bx-grid .bx-grid-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: #6c757d;
-    font-style: italic;
+	text-align: center;
+	padding: 40px 20px;
+	color: #999;
+	font-style: italic;
 }
 
-/* Grid responsive AJAX behaviors */
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
-    .bx-grid .bx-grid-pagination {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .bx-grid .bx-loading {
-        padding: 15px;
-        font-size: 0.9em;
-    }
-    
-    .bx-grid .bx-grid-search {
-        padding: 8px;
-    }
-    
-    .bx-grid .bx-grid-search input {
-        font-size: 16px; /* Prevent zoom on iOS */
-    }
+	.bx-grid {
+		font-size: 13px;
+	}
+
+	.bx-grid-header th,
+	.bx-grid-cell {
+		padding: 6px 8px;
+	}
+
+	.bx-grid-pagination {
+		flex-direction: column;
+		gap: 8px;
+	}
 }
 
-/* Accessibility improvements */
-.bx-grid th[data-sort]:focus {
-    outline: 2px solid #007bff;
-    outline-offset: 2px;
-}
-
-.bx-grid .bx-retry-button:focus {
-    outline: 2px solid #dc3545;
-    outline-offset: 2px;
+/* ===== Accessibility ===== */
+.bx-grid-sortable .bx-grid-column-header:focus {
+	outline: 2px solid #4a90d9;
+	outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .bx-grid .bx-loading-row {
-        animation: none;
-        background: #e0e0e0;
-    }
-    
-    .bx-grid tbody tr.bx-updated {
-        animation: none;
-        background-color: #d4edda;
-    }
-    
-    .bx-grid tbody tr.bx-updating {
-        transition: none;
-    }
-}
+	.bx-grid .bx-loading-row {
+		animation: none;
+		background: #e0e0e0;
+	}
 
-/* High contrast mode */
-@media (prefers-contrast: high) {
-    .bx-grid .bx-loading {
-        border-width: 2px;
-        background-color: #fff;
-        color: #000;
-    }
-    
-    .bx-grid .bx-grid-error {
-        border-width: 2px;
-        background-color: #fff;
-        color: #000;
-    }
+	.bx-grid-body .bx-grid-row.bx-updated {
+		animation: none;
+	}
+
+	.bx-grid-body .bx-grid-row {
+		transition: none;
+	}
 }

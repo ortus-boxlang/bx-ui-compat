@@ -290,7 +290,7 @@ function buildConfig(rawConfig, windowName) {
 	// When initshow=false defer the position until show() is called
 	if (cfg.initshow === false) {
 		cfg.tempinitshow = false;
-		if (isFixedCenter) {
+		if (cfg.fixedcenter) {
 			cfg.tempcenter = cfg.fixedcenter;
 			cfg.fixedcenter = null;
 		} else {
@@ -832,13 +832,15 @@ const WindowAPI = {
 };
 
 // ---------------------------------------------------------------------------
-// Expose on window.ColdFusion.Window  (drop-in compatibility)
+// Expose on window.BXUICompat.Window (canonical) — alias via window.ColdFusion
+// is set by ajax-core.js
 // ---------------------------------------------------------------------------
 
-window.ColdFusion = window.ColdFusion || {};
-window.ColdFusion.Window = WindowAPI;
+window.BXUICompat = window.BXUICompat || {};
+window.BXUICompat.Window = WindowAPI;
 
-// Also expose the internal caches so that external ColdFusion.* code that
-// reads objectCache / bindHandlerCache continues to function.
-window.ColdFusion.objectCache = objectCache;
-window.ColdFusion.bindHandlerCache = bindHandlerCache;
+// Merge local caches into the canonical BXUICompat object
+window.BXUICompat.objectCache = window.BXUICompat.objectCache || {};
+Object.assign(window.BXUICompat.objectCache, objectCache);
+window.BXUICompat.bindHandlerCache = window.BXUICompat.bindHandlerCache || {};
+Object.assign(window.BXUICompat.bindHandlerCache, bindHandlerCache);

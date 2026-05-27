@@ -77,17 +77,26 @@
 						pod.classList.remove("bx-refreshing");
 					}
 
+					var esc = BoxLangAjax.utils.escapeHTML;
 					content.innerHTML = `
                         <div class="bx-source-error">
                             <div class="bx-error-title">Failed to refresh content</div>
-                            <div class="bx-error-message">${error.message}</div>
+                            <div class="bx-error-message">${esc(error.message)}</div>
                             <div class="bx-error-retry">
-                                <button type="button" class="bx-retry-button" onclick="BoxLangAjax.components.pod.refresh('${podId}')">
+                                <button type="button" class="bx-retry-button">
                                     Retry
                                 </button>
                             </div>
                         </div>
                     `;
+
+					// Attach retry via addEventListener (no inline onclick)
+					var retryBtn = content.querySelector(".bx-retry-button");
+					if (retryBtn) {
+						retryBtn.addEventListener("click", function () {
+							BoxLangAjax.components.pod.refresh(podId);
+						});
+					}
 
 					// Trigger error event
 					const errorEvent = new CustomEvent("pod-error", {
@@ -123,7 +132,7 @@
 		},
 
 		/**
-		 * Set up auto-refresh for a pod
+		 * Set up auto-refresh for a pod (uses setTimeout chains to prevent stacking)
 		 */
 		autoRefresh: function (podId, interval) {
 			const pod = document.getElementById(podId);
@@ -140,51 +149,70 @@
 				return;
 			}
 
-			// Clear existing intervals
+			// Stop any existing auto-refresh
 			this.stopAutoRefresh(podId);
 
-			// Don't refresh if pod is collapsed
-			const refreshFn = function () {
-				if (
-					!pod.classList.contains("bx-collapsed") &&
-					document.contains(pod)
-				) {
-					BoxLangAjax.components.pod
-						.refresh(podId, false) // No overlay for auto-refresh
-						.catch(function (error) {
-							console.error("Pod auto-refresh failed:", error);
-						});
-				} else if (!document.contains(pod)) {
-					// Pod removed from DOM, stop refreshing
-					BoxLangAjax.components.pod.stopAutoRefresh(podId);
-				}
-			};
-
-			const refreshInterval = setInterval(refreshFn, interval);
-
-			// Store interval ID for cleanup
-			if (!pod.dataset.refreshIntervals) {
-				pod.dataset.refreshIntervals = "";
+			// Use a pod-specific setTimeout chain that skips refresh when collapsed
+			if (!BoxLangAjax._podAutoRefresh) {
+				BoxLangAjax._podAutoRefresh = new Map();
 			}
-			pod.dataset.refreshIntervals += refreshInterval + ",";
 
-			return refreshInterval;
+			var active = true;
+
+			function scheduleNext() {
+				if (!active) return;
+				var timerId = setTimeout(function () {
+					if (!active || !document.contains(pod)) {
+						active = false;
+						BoxLangAjax._podAutoRefresh.delete(podId);
+						return;
+					}
+					// Skip if collapsed
+					if (pod.classList.contains("bx-collapsed")) {
+						scheduleNext();
+						return;
+					}
+					BoxLangAjax.components.pod
+						.refresh(podId, false)
+						.catch(function (error) {
+							if (error && error.name !== "AbortError") {
+								console.error(
+									"Pod auto-refresh failed:",
+									error,
+								);
+							}
+						})
+						.finally(function () {
+							scheduleNext();
+						});
+				}, interval);
+				BoxLangAjax._podAutoRefresh.set(podId, {
+					timerId: timerId,
+					stop: function () {
+						active = false;
+						clearTimeout(timerId);
+					},
+				});
+			}
+
+			scheduleNext();
+			return podId;
 		},
 
 		/**
 		 * Stop auto-refresh for a pod
 		 */
 		stopAutoRefresh: function (podId) {
-			const pod = document.getElementById(podId);
-			if (!pod) return;
-
-			const intervals = pod.dataset.refreshIntervals;
-			if (intervals) {
-				intervals.split(",").forEach(function (intervalId) {
-					if (intervalId) {
-						clearInterval(parseInt(intervalId));
-					}
-				});
+			if (BoxLangAjax._podAutoRefresh) {
+				var entry = BoxLangAjax._podAutoRefresh.get(podId);
+				if (entry) {
+					entry.stop();
+					BoxLangAjax._podAutoRefresh.delete(podId);
+				}
+			}
+			// Clean up legacy dataset property
+			var pod = document.getElementById(podId);
+			if (pod) {
 				delete pod.dataset.refreshIntervals;
 			}
 		},
@@ -386,4 +414,13 @@
 	} else {
 		initPodAjax();
 	}
+
+	// -------------------------------------------------------------------
+	// BXUICompat.Pod facade
+	// -------------------------------------------------------------------
+	window.BXUICompat = window.BXUICompat || {};
+	window.BXUICompat.Pod = window.BXUICompat.Pod || {};
+	window.BXUICompat.Pod.refresh = function (podId, showOverlay) {
+		return BoxLangAjax.components.pod.refresh(podId, showOverlay);
+	};
 })();

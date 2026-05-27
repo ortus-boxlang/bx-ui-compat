@@ -14,6 +14,9 @@
 
 	// Grid-specific AJAX utilities
 	BoxLangAjax.components.grid = {
+		/** @type {Map<string, AbortController>} Track in-flight grid requests */
+		_controllers: new Map(),
+
 		/**
 		 * Load grid data with pagination
 		 */
@@ -49,8 +52,14 @@
 			// Show loading skeleton
 			this.showLoadingSkeleton(gridId);
 
+			// Cancel any previous in-flight request for this grid
+			var prevController = this._controllers.get(gridId);
+			if (prevController) prevController.abort();
+			var controller = new AbortController();
+			this._controllers.set(gridId, controller);
+
 			return BoxLangAjax.utils
-				.fetchContent(fullUrl)
+				.fetchContent(fullUrl, { signal: controller.signal })
 				.then(function (data) {
 					// Assume data is JSON with { data: rows[], totalRows: number }
 					if (typeof data === "string") {
@@ -162,18 +171,26 @@
 			if (!tbody) return;
 
 			const columnCount = grid.querySelectorAll("thead th").length || 1;
+			var esc = BoxLangAjax.utils.escapeHTML;
 
 			tbody.innerHTML = `
                 <tr>
                     <td colspan="${columnCount}" class="bx-grid-error">
                         <div class="bx-error-title">Failed to load data</div>
-                        <div class="bx-error-message">${error.message}</div>
-                        <button type="button" class="bx-retry-button" onclick="BoxLangAjax.components.grid.refresh('${gridId}')">
+                        <div class="bx-error-message">${esc(error.message)}</div>
+                        <button type="button" class="bx-retry-button">
                             Retry
                         </button>
                     </td>
                 </tr>
             `;
+
+			var retryBtn = tbody.querySelector(".bx-retry-button");
+			if (retryBtn) {
+				retryBtn.addEventListener("click", function () {
+					BoxLangAjax.components.grid.refresh(gridId);
+				});
+			}
 		},
 
 		/**
@@ -204,23 +221,39 @@
 					)} of ${totalRows}
                 </div>
                 <div class="bx-pagination-controls">
-                    <button type="button" ${
+                    <button type="button" class="bx-page-prev" ${
 						currentPage <= 1 ? "disabled" : ""
-					} onclick="BoxLangAjax.components.grid.goToPage('${gridId}', ${
-						currentPage - 1
-					})">
+					}>
                         Previous
                     </button>
                     <span class="bx-page-info">Page ${currentPage} of ${totalPages}</span>
-                    <button type="button" ${
+                    <button type="button" class="bx-page-next" ${
 						currentPage >= totalPages ? "disabled" : ""
-					} onclick="BoxLangAjax.components.grid.goToPage('${gridId}', ${
-						currentPage + 1
-					})">
+					}>
                         Next
                     </button>
                 </div>
             `;
+
+			// Attach pagination handlers via addEventListener
+			var prevBtn = pagination.querySelector(".bx-page-prev");
+			var nextBtn = pagination.querySelector(".bx-page-next");
+			if (prevBtn && currentPage > 1) {
+				prevBtn.addEventListener("click", function () {
+					BoxLangAjax.components.grid.goToPage(
+						gridId,
+						currentPage - 1,
+					);
+				});
+			}
+			if (nextBtn && currentPage < totalPages) {
+				nextBtn.addEventListener("click", function () {
+					BoxLangAjax.components.grid.goToPage(
+						gridId,
+						currentPage + 1,
+					);
+				});
+			}
 		},
 
 		/**
@@ -400,4 +433,32 @@
 	} else {
 		initGridAjax();
 	}
+
+	// -------------------------------------------------------------------
+	// BXUICompat.Grid facade
+	// -------------------------------------------------------------------
+	window.BXUICompat = window.BXUICompat || {};
+	window.BXUICompat.Grid = {
+		loadData: function (gridId, page, pageSize, sort, order) {
+			return BoxLangAjax.components.grid.loadData(
+				gridId,
+				page,
+				pageSize,
+				sort,
+				order,
+			);
+		},
+		refresh: function (gridId) {
+			return BoxLangAjax.components.grid.refresh(gridId);
+		},
+		sortBy: function (gridId, col) {
+			return BoxLangAjax.components.grid.sortBy(gridId, col);
+		},
+		search: function (gridId, query) {
+			return BoxLangAjax.components.grid.search(gridId, query);
+		},
+		goToPage: function (gridId, page) {
+			return BoxLangAjax.components.grid.goToPage(gridId, page);
+		},
+	};
 })();

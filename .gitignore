@@ -5,6 +5,12 @@ compat-ref/**
 seed-test-module.sh
 !gradle/wrapper/gradle-wrapper.jar
 
+## JS Testing artifacts
+node_modules/**
+coverage/**
+reports/**
+test-results/**
+
 ### IntelliJ IDEA ###
 .idea/
 

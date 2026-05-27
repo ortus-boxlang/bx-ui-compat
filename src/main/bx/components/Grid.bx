@@ -379,6 +379,46 @@ class{
 		var buffer = newBuffer();
 		var bodyResult = processBody( context, body, buffer );
 
+		// Resolve query: if it's a string variable name, look it up from caller's scope
+		if( !isNull( executionState.query ) && isSimpleValue( executionState.query ) && len( executionState.query ) ){
+			var queryVarName = executionState.query;
+			try {
+				var callerScope = context.getScopeNearby( "variables" );
+				if( !isNull( callerScope ) && callerScope.containsKey( queryVarName ) ){
+					executionState.query = callerScope.get( queryVarName );
+				}
+			} catch( any e ){
+				throw(
+					type		= "boxlang.compat.ui.InvalidAttributeException",
+					message		= "The query attribute value '#queryVarName#' could not be resolved to a Query object in the caller's scope."
+				);
+			}
+		}
+
+		// Auto-generate columns from query if no GridColumn children were defined
+		if( !isNull( executionState.query ) && isQuery( executionState.query ) && executionState.columns.isEmpty() ){
+			var queryColumns = executionState.query.getColumnNames();
+			for( var colName in queryColumns ){
+				executionState.columns.append( {
+					"name" : colName,
+					"header" : colName,
+					"width" : "",
+					"sortable" : attributes.sortable,
+					"editable" : attributes.editable,
+					"dataAlign" : attributes.gridDataAlign,
+					"headerAlign" : "left",
+					"display" : true,
+					"type" : "string",
+					"numberFormat" : "",
+					"dateFormat" : "",
+					"values" : [],
+					"valuesDisplay" : [],
+					"href" : "",
+					"target" : ""
+				} );
+			}
+		}
+
 		// Generate grid table structure
 		generateGridStructure( context, attributes, executionState );
 

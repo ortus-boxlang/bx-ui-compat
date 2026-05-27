@@ -542,4 +542,91 @@ public class GridTest extends BaseIntegrationTest {
 		Boolean hasError = variables.getAsBoolean( Key.of( "hasError" ) );
 		assertThat( hasError ).isTrue();
 	}
+
+	@DisplayName( "It auto-generates columns from query when no GridColumns defined" )
+	@Test
+	public void testQueryAutoColumns() {
+		runtime.executeSource(
+		    """
+		    qData = queryNew("tableName,tableType,rowCount", "varchar,varchar,integer", [
+		        {"tableName": "users", "tableType": "TABLE", "rowCount": 150},
+		        {"tableName": "orders", "tableType": "TABLE", "rowCount": 5200}
+		    ]);
+		    bx:grid name="autoGrid" query="#qData#";
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// Should use query column names as headers
+		assertThat( output ).contains( "tableName" );
+		assertThat( output ).contains( "tableType" );
+		assertThat( output ).contains( "rowCount" );
+		// Should render row data
+		assertThat( output ).contains( "users" );
+		assertThat( output ).contains( "orders" );
+		assertThat( output ).contains( "5200" );
+	}
+
+	@DisplayName( "It uses GridColumn name attributes to pull query data" )
+	@Test
+	public void testQueryWithGridColumns() {
+		runtime.executeSource(
+		    """
+		    qData = queryNew("tableName,tableType,rowCount", "varchar,varchar,integer", [
+		        {"tableName": "users", "tableType": "TABLE", "rowCount": 150},
+		        {"tableName": "products", "tableType": "TABLE", "rowCount": 340}
+		    ]);
+		    bx:grid name="gridTables" query="#qData#" selectmode="row" {
+		        bx:gridcolumn name="tableName" header="Table Name";
+		        bx:gridcolumn name="tableType" header="Type";
+		        bx:gridcolumn name="rowCount" header="Row Count";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// Should use custom headers
+		assertThat( output ).contains( "Table Name" );
+		assertThat( output ).contains( "Type" );
+		assertThat( output ).contains( "Row Count" );
+		// Should render row data from query using column name references
+		assertThat( output ).contains( "users" );
+		assertThat( output ).contains( "products" );
+		assertThat( output ).contains( "340" );
+	}
+
+	@DisplayName( "It renders query rows with string query attribute name" )
+	@Test
+	public void testCFGridTagSyntaxWithQuery() {
+		runtime.executeSource(
+		    """
+		    qTables = queryNew("tableName,tableType,rowCount", "varchar,varchar,integer", [
+		        {"tableName": "users", "tableType": "TABLE", "rowCount": 150},
+		        {"tableName": "orders", "tableType": "TABLE", "rowCount": 5200},
+		        {"tableName": "products", "tableType": "TABLE", "rowCount": 340}
+		    ]);
+		    bx:grid name="gridTables" format="html" query="qTables" width="600" height="300"
+		        selectmode="row" {
+		        bx:gridcolumn name="tableName" header="Table Name";
+		        bx:gridcolumn name="tableType" header="Type";
+		        bx:gridcolumn name="rowCount" header="Row Count";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		System.out.println( "CFGRID OUTPUT: " + output );
+		// Should contain table rows with data
+		assertThat( output ).contains( "bx-grid-row" );
+		assertThat( output ).contains( "users" );
+		assertThat( output ).contains( "orders" );
+		assertThat( output ).contains( "products" );
+		assertThat( output ).contains( "5200" );
+	}
 }

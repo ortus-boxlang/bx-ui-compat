@@ -1,0 +1,321 @@
+/**
+ * BoxLang Component Which Generates a Progress Bar
+ *
+ * This component implements the functionality of the cfprogressbar tag,
+ * providing an animated progress bar that can be driven by a timer (duration)
+ * or by a bind expression (CFC / JS function) returning {status, message}.
+ *
+ * The progress bar integrates with the ColdFusion.ProgressBar JS API
+ * (start, stop, show, hide) for runtime control.
+ */
+@BoxComponent( "ProgressBar" )
+@AllowsBody( false )
+@RequiresBody( false )
+class{
+
+	/**
+	 * The ProgressBar UI component
+	 *
+	 * <pre>
+	 * <bx:progressbar name="myBar" duration="5000" onComplete="handleDone" />
+	 * <bx:progressbar name="myBar" bind="cfc:status.getProgress()" interval="2000" onComplete="handleDone" />
+	 * </pre>
+	 *
+	 * @attribute.name - string, required - The control identifier used by ColdFusion.ProgressBar.*
+	 * @attribute.bind - string, optional - Bind expression (cfc:component.method()) that returns {status:0-1, message:""}
+	 * @attribute.duration - numeric, optional - Total duration in ms for automatic progress (mutually exclusive with bind)
+	 * @attribute.interval - numeric, optional, default 1000 - Polling/update interval in ms
+	 * @attribute.width - numeric, optional, default 400 - Width in pixels
+	 * @attribute.height - numeric, optional - Height in pixels
+	 * @attribute.autoDisplay - boolean, optional, default true - Whether to display the bar immediately
+	 * @attribute.onComplete - string, optional - JS function name to call on completion
+	 * @attribute.onError - string, optional - JS function name to call on error (bind mode only)
+	 * @attribute.style - string, optional - Style spec: bgcolor, textcolor, progresscolor (hex without #)
+	 * @attribute.class - string, optional - Additional CSS classes
+	 * @attribute.id - string, optional - HTML element ID (defaults to name)
+	 *
+	 * @param context The context of the execution (IBoxContext)
+	 * @param attributes The attributes of the component
+	 * @param body Not used
+	 * @param executionState The execution state
+	 *
+	 * @return null
+	 */
+	function invoke( required context, Struct attributes, any body, Struct executionState ){
+
+		// Defaults
+		param attributes.name = "";
+		param attributes.bind = "";
+		param attributes.duration = "";
+		param attributes.interval = 1000;
+		param attributes.width = 400;
+		param attributes.height = "";
+		param attributes.autoDisplay = true;
+		param attributes.onComplete = "";
+		param attributes.onError = "";
+		param attributes.style = "";
+		param attributes.class = "";
+
+		// Validate required name
+		if( !len( attributes.name ) ){
+			throw(
+				type    = "boxlang.compat.ui.InvalidAttributeException",
+				message = "The [name] attribute is required for the ProgressBar component."
+			);
+		}
+
+		// Validate mutually exclusive attributes
+		if( len( attributes.bind ) && len( attributes.duration ) ){
+			throw(
+				type    = "boxlang.compat.ui.InvalidAttributeException",
+				message = "The [bind] and [duration] attributes are mutually exclusive. Specify one or the other."
+			);
+		}
+		if( !len( attributes.bind ) && !len( attributes.duration ) ){
+			throw(
+				type    = "boxlang.compat.ui.InvalidAttributeException",
+				message = "Either [bind] or [duration] attribute is required for the ProgressBar component."
+			);
+		}
+
+		// Resolve ID
+		if( isNull( attributes.id ) || !len( attributes.id ?: "" ) ){
+			attributes.id = attributes.name;
+		}
+
+		// Parse style colours
+		var bgColor = "e0e0e0";
+		var progressColor = "4CAF50";
+		var textColor = "ffffff";
+
+		if( len( attributes.style ) ){
+			var styleParts = listToArray( attributes.style, ";" );
+			for( var part in styleParts ){
+				var kv = listToArray( trim( part ), ":" );
+				if( arrayLen( kv ) == 2 ){
+					var key = trim( kv[ 1 ] );
+					var val = trim( kv[ 2 ] );
+					switch( lcase( key ) ){
+						case "bgcolor":
+							bgColor = val;
+							break;
+						case "progresscolor":
+							progressColor = val;
+							break;
+						case "textcolor":
+							textColor = val;
+							break;
+					}
+				}
+			}
+		}
+
+		// CSS classes
+		var cssClasses = [ "bx-progressbar" ];
+		if( len( attributes.class ) ){
+			cssClasses.append( attributes.class );
+		}
+
+		// Build HTML
+		var html = "";
+
+		// Use CSS class for hidden state (enables transition on show)
+		if( !attributes.autoDisplay ){
+			cssClasses.append( "bx-progressbar-hidden" );
+		}
+
+		html &= "<div id=""#encodeForHTMLAttribute( attributes.id )#""";
+		html &= " class=""#cssClasses.toList( " " )#""";
+		html &= " style=""width:#attributes.width#px;#len( attributes.height ) ? 'height:' & attributes.height & 'px;' : ''#""";
+		html &= " data-name=""#encodeForHTMLAttribute( attributes.name )#""";
+		if( len( attributes.bind ) ){
+			html &= " data-bind=""#encodeForHTMLAttribute( attributes.bind )#""";
+		}
+		if( len( attributes.duration ) ){
+			html &= " data-duration=""#attributes.duration#""";
+		}
+		html &= " data-interval=""#attributes.interval#""";
+		html &= ">";
+
+		// Track (background)
+		html &= "<div class=""bx-progressbar-track"" style=""background-color:###bgColor#;#len( attributes.height ) ? 'height:' & attributes.height & 'px;' : ''#"">";
+
+		// Fill (progress indicator)
+		html &= "<div class=""bx-progressbar-fill"" style=""width:0%;background-color:###progressColor#;"">";
+		html &= "</div>";
+
+		// Message overlay
+		html &= "<span class=""bx-progressbar-message"" style=""color:###textColor#;""></span>";
+
+		html &= "</div>"; // close track
+		html &= "</div>"; // close container
+
+		context.writeToBuffer( html );
+
+		// Generate JS controller
+		generateProgressBarScript( context, attributes );
+	}
+
+	/**
+	 * Generate the JavaScript that wires the progress bar to the ColdFusion.ProgressBar API.
+	 */
+	private function generateProgressBarScript( required context, required attributes ){
+		var barName    = attributes.name;
+		var barId      = attributes.id;
+		var bind       = attributes.bind;
+		var duration   = attributes.duration;
+		var interval   = attributes.interval;
+		var onComplete = attributes.onComplete;
+		var onError    = attributes.onError;
+
+		var script = "<script type=""text/javascript"">";
+		script &= "(function(){";
+		script &= "'use strict';";
+
+		// Wait for DOM + BXUICompat
+		script &= "function _initBar(){";
+		script &= "var bar = document.getElementById('#encodeForJavaScript( barId )#');";
+		script &= "if(!bar) return;";
+		script &= "var fill = bar.querySelector('.bx-progressbar-fill');";
+		script &= "var msg = bar.querySelector('.bx-progressbar-message');";
+		script &= "var $PB = window.ColdFusion && window.ColdFusion.ProgressBar;";
+		script &= "if(!$PB) return;";
+
+		// Register this bar in the ProgressBar controller
+		script &= "$PB._bars['#encodeForJavaScript( barName )#'] = $PB._bars['#encodeForJavaScript( barName )#'] || {};";
+		script &= "var state = $PB._bars['#encodeForJavaScript( barName )#'];";
+		script &= "state.running = false;";
+		script &= "state.visible = #attributes.autoDisplay ? 'true' : 'false'#;";
+		script &= "state._timerId = null;";
+		script &= "state._progress = 0;";
+
+		// ---- Duration-based (automatic) progress ----
+		if( len( duration ) ){
+			script &= "state._mode = 'duration';";
+			script &= "state._duration = #duration#;";
+			script &= "state._interval = #interval#;";
+			script &= "state._startFn = function(){";
+			script &= "  state.running = true;";
+			script &= "  bar.classList.add('bx-progress-running');";
+			script &= "  var steps = Math.ceil(state._duration / state._interval);";
+			script &= "  var step = 0;";
+			script &= "  state._timerId = setInterval(function(){";
+			script &= "    step++;";
+			script &= "    state._progress = Math.min(step / steps, 1);";
+			script &= "    fill.style.width = (state._progress * 100) + '%';";
+			script &= "    msg.textContent = Math.round(state._progress * 100) + '%';";
+			script &= "    if(state._progress >= 1){";
+			script &= "      clearInterval(state._timerId);";
+			script &= "      state._timerId = null;";
+			script &= "      state.running = false;";
+			script &= "      bar.classList.remove('bx-progress-running');";
+			if( len( onComplete ) ){
+				script &= "      if(typeof #onComplete# === 'function') #onComplete#();";
+			}
+			script &= "    }";
+			script &= "  }, state._interval);";
+			script &= "};";
+		}
+
+		// ---- Bind-based (dynamic) progress ----
+		if( len( bind ) ){
+			script &= "state._mode = 'bind';";
+			script &= "state._interval = #interval#;";
+
+			// Determine if CFC bind or JS function
+			if( findNoCase( "cfc:", bind ) ){
+				// Parse cfc:component.method()
+				var cfcExpr = replaceNoCase( bind, "cfc:", "" );
+				var dotPos  = find( ".", cfcExpr );
+				var parenPos = find( "(", cfcExpr );
+				var cfcPath = "";
+				var cfcMethod = "";
+				if( dotPos > 0 && parenPos > 0 ){
+					cfcPath = left( cfcExpr, dotPos - 1 );
+					cfcMethod = mid( cfcExpr, dotPos + 1, parenPos - dotPos - 1 );
+				}
+
+				script &= "state._fetchProgress = function(){";
+				script &= "  var formData = new FormData();";
+				script &= "  formData.append('method', '#encodeForJavaScript( cfcMethod )#');";
+				script &= "  formData.append('cfc', '#encodeForJavaScript( cfcPath )#');";
+				script &= "  formData.append('returnformat', 'json');";
+				script &= "  return fetch('/index.cfm', {method:'POST',body:formData,headers:{'X-Requested-With':'XMLHttpRequest'}})";
+				script &= "    .then(function(r){ return r.json(); })";
+				script &= "    .then(function(data){ return {status: parseFloat(data.STATUS || data.status || 0), message: data.MESSAGE || data.message || ''}; });";
+				script &= "};";
+			} else {
+				// JS function bind
+				script &= "state._fetchProgress = function(){";
+				script &= "  return Promise.resolve(#bind#());";
+				script &= "};";
+			}
+
+			script &= "state._startFn = function(){";
+			script &= "  state.running = true;";
+			script &= "  bar.classList.add('bx-progress-running');";
+			script &= "  function poll(){";
+			script &= "    if(!state.running) return;";
+			script &= "    state._fetchProgress().then(function(result){";
+			script &= "      state._progress = result.status;";
+			script &= "      fill.style.width = (result.status * 100) + '%';";
+			script &= "      msg.textContent = result.message || (Math.round(result.status * 100) + '%');";
+			script &= "      if(result.status >= 1){";
+			script &= "        state.running = false;";
+			script &= "        bar.classList.remove('bx-progress-running');";
+			if( len( onComplete ) ){
+				script &= "        if(typeof #onComplete# === 'function') #onComplete#();";
+			}
+			script &= "      } else {";
+			script &= "        state._timerId = setTimeout(poll, state._interval);";
+			script &= "      }";
+			script &= "    }).catch(function(err){";
+			script &= "      state.running = false;";
+			script &= "      bar.classList.remove('bx-progress-running');";
+			if( len( onError ) ){
+				script &= "      if(typeof #onError# === 'function') #onError#(-1, err.message);";
+			} else {
+				script &= "      console.error('ProgressBar [#encodeForJavaScript( barName )#] error:', err);";
+			}
+			script &= "    });";
+			script &= "  }";
+			script &= "  poll();";
+			script &= "};";
+		}
+
+		// Wire up $PB.start / $PB.stop overrides for this specific bar
+		script &= "var origStart = $PB.start.bind($PB);";
+		script &= "var origStop = $PB.stop.bind($PB);";
+		script &= "function _stopThis(){";
+		script &= "  if(state._timerId){ clearInterval(state._timerId); clearTimeout(state._timerId); state._timerId = null; }";
+		script &= "  state.running = false;";
+		script &= "  state._progress = 0;";
+		script &= "  bar.classList.remove('bx-progress-running');";
+		script &= "}";
+		script &= "function _resetThis(){";
+		script &= "  fill.style.width = '0%';";
+		script &= "  msg.textContent = '';";
+		script &= "  bar.classList.remove('bx-progress-complete');";
+		script &= "}";
+		script &= "$PB.start = function(name){";
+		script &= "  if(name === '#encodeForJavaScript( barName )#' && state._startFn){ _stopThis(); _resetThis(); state._startFn(); }";
+		script &= "  else { origStart(name); }";
+		script &= "};";
+		script &= "$PB.stop = function(name){";
+		script &= "  if(name === '#encodeForJavaScript( barName )#'){";
+		script &= "    _stopThis();";
+		script &= "  } else { origStop(name); }";
+		script &= "};";
+
+		script &= "}"; // end _initBar
+
+		// Run init
+		script &= "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_initBar);}else{_initBar();}";
+
+		script &= "})();";
+		script &= "</script>";
+
+		context.writeToBuffer( script );
+	}
+
+}
