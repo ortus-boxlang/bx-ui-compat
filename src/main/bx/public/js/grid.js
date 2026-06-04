@@ -423,8 +423,6 @@
 	function initGridAjax() {
 		enhanceGridEvents();
 		autoLoadGridData();
-
-		console.log("BoxLang Grid AJAX enhancements initialized");
 	}
 
 	// Initialize when DOM is ready

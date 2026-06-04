@@ -671,8 +671,6 @@ const WindowAPI = {
 			}
 		}
 
-		console.info(`[ColdFusion.Window] Creating window: ${name}`);
-
 		let cfg;
 		try {
 			cfg = buildConfig(config, name);
@@ -729,7 +727,6 @@ const WindowAPI = {
 
 		if (!cached.isVisible()) {
 			cached.show();
-			console.info(`[ColdFusion.Window] Shown: ${name}`);
 		}
 	},
 
@@ -746,7 +743,6 @@ const WindowAPI = {
 		}
 		if (winObj.isVisible()) {
 			winObj.hide();
-			console.info(`[ColdFusion.Window] Hidden: ${name}`);
 		}
 	},
 
@@ -761,7 +757,6 @@ const WindowAPI = {
 		const winObj = objectCache.get(name);
 		if (winObj && typeof winObj.destroy === "function") {
 			winObj.destroy();
-			console.info(`[ColdFusion.Window] Destroyed: ${name}`);
 		}
 	},
 

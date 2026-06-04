@@ -271,8 +271,6 @@
 					}
 				});
 			});
-
-		console.log("BoxLang Layout AJAX enhancements initialized");
 	}
 
 	// Initialize when DOM is ready

@@ -276,7 +276,7 @@
 							if (successCallback && window[successCallback]) {
 								window[successCallback](result, form);
 							} else {
-								console.log(
+								console.debug(
 									"Form submitted successfully:",
 									result,
 								);
@@ -359,8 +359,6 @@
 		executePageBinds();
 		setupPeriodicBinds();
 		setupProxyErrorHandling();
-
-		console.log("BoxLang AJAX Proxy enhancements initialized");
 	}
 
 	// Initialize when DOM is ready

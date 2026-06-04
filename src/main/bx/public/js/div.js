@@ -343,8 +343,6 @@
 					}
 				});
 			});
-
-		console.log("BoxLang Div AJAX enhancements initialized");
 	}
 
 	// Initialize when DOM is ready

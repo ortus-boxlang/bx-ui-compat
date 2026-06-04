@@ -430,8 +430,6 @@
 					});
 			}
 		});
-
-		console.log("BoxLang Tooltip AJAX enhancements initialized");
 	}
 
 	// Initialize when DOM is ready
