@@ -612,15 +612,64 @@ function createDialogWindow(name, title, url, cfg) {
 			const iframe = document.createElement("iframe");
 			iframe.src = this.url;
 			iframe.title = title || name;
-			// Once the page loads, sync the header title to the iframe page title
-			// (or clear it if the page has no <title>).
+			// Once the page loads, sync the header title and share the parent
+			// page's JS context (functions, variables, ColdFusion.* namespace)
+			// into the iframe so it behaves like CF's cfwindow source pages.
 			iframe.addEventListener("load", () => {
+				// Sync header title to the iframe page title
 				try {
 					const pageTitle = iframe.contentDocument?.title;
 					titleEl.textContent =
 						pageTitle && pageTitle.trim() !== "" ? pageTitle : "";
 				} catch {
 					// Cross-origin iframes will throw on contentDocument access – leave title as-is.
+				}
+
+				// Share parent context into the iframe (same-origin only).
+				// Cross-origin source URLs will throw on contentWindow access and
+				// are silently skipped – graceful degradation.
+				try {
+					const iframeWin = iframe.contentWindow;
+					if (!iframeWin) return;
+
+					// 1. Share ColdFusion / BXUICompat namespaces by reference so
+					//    calls like ColdFusion.Window.show() inside the child page
+					//    operate on the parent page's window registry.
+					iframeWin.ColdFusion = window.ColdFusion;
+					iframeWin.BXUICompat = window.BXUICompat;
+
+					// 2. Copy all user-defined properties (functions and variables)
+					//    from the parent window. Object.keys() returns only enumerable
+					//    own properties, which includes global function declarations
+					//    and var assignments but excludes native browser APIs.
+					const BROWSER_GLOBALS = new Set([
+						"window", "self", "top", "parent", "frames",
+						"location", "history", "document", "navigator",
+						"ColdFusion", "BXUICompat",
+					]);
+					for (const key of Object.keys(window)) {
+						if (BROWSER_GLOBALS.has(key)) continue;
+						try {
+							const val = window[key];
+							if (typeof val === "function") {
+								// Only copy non-native (user-defined) functions
+								const src = Function.prototype.toString.call(val);
+								if (!src.includes("[native code]")) {
+									iframeWin[key] = val;
+								}
+							} else {
+								// Copy variables (objects, primitives) that are not
+								// already defined by the iframe page's own globals
+								if (!(key in iframeWin)) {
+									iframeWin[key] = val;
+								}
+							}
+						} catch {
+							// Some exotic properties may throw on access – skip
+						}
+					}
+				} catch {
+					// Cross-origin iframe – context sharing silently skipped
 				}
 			});
 			this._body.innerHTML = "";

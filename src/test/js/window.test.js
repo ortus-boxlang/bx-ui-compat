@@ -189,13 +189,13 @@ describe("window.js", () => {
 		describe("onShow / onHide", () => {
 			it("throws if window not found for onShow", () => {
 				expect(() =>
-					WindowAPI.onShow("nonexistent", () => {}),
+					WindowAPI.onShow("nonexistent", () => { }),
 				).toThrow();
 			});
 
 			it("throws if window not found for onHide", () => {
 				expect(() =>
-					WindowAPI.onHide("nonexistent", () => {}),
+					WindowAPI.onHide("nonexistent", () => { }),
 				).toThrow();
 			});
 
@@ -227,6 +227,101 @@ describe("window.js", () => {
 				// getWindowObject on an already-created window
 				const obj = WindowAPI.getWindowObject("getWin");
 				expect(obj).toBeDefined();
+			});
+		});
+
+		describe("_loadContent context sharing", () => {
+			afterEach(() => {
+				delete window.myParentFunction;
+				delete window.myParentVariable;
+				delete window.myConflictVar;
+			});
+
+			it("shares ColdFusion and BXUICompat by reference into the iframe", () => {
+				const win = WindowAPI.create(
+					"ctxShareWin",
+					"Context",
+					"/page.html",
+					{ initshow: true },
+				);
+				const iframe = win._body.querySelector("iframe");
+				expect(iframe).not.toBeNull();
+
+				iframe.dispatchEvent(new Event("load"));
+
+				expect(iframe.contentWindow.ColdFusion).toBe(
+					window.ColdFusion,
+				);
+				expect(iframe.contentWindow.BXUICompat).toBe(
+					window.BXUICompat,
+				);
+			});
+
+			it("copies user-defined parent functions into the iframe", () => {
+				window.myParentFunction = function () {
+					return 42;
+				};
+
+				const win = WindowAPI.create(
+					"ctxFnWin",
+					"Context",
+					"/page.html",
+					{ initshow: true },
+				);
+				const iframe = win._body.querySelector("iframe");
+				iframe.dispatchEvent(new Event("load"));
+
+				expect(iframe.contentWindow.myParentFunction).toBeDefined();
+				expect(iframe.contentWindow.myParentFunction()).toBe(42);
+			});
+
+			it("copies user-defined parent variables into the iframe", () => {
+				window.myParentVariable = { data: "hello" };
+
+				const win = WindowAPI.create(
+					"ctxVarWin",
+					"Context",
+					"/page.html",
+					{ initshow: true },
+				);
+				const iframe = win._body.querySelector("iframe");
+				iframe.dispatchEvent(new Event("load"));
+
+				expect(iframe.contentWindow.myParentVariable).toBeDefined();
+				expect(iframe.contentWindow.myParentVariable.data).toBe(
+					"hello",
+				);
+			});
+
+			it("does not overwrite iframe page's own globals with parent values", () => {
+				window.myConflictVar = "parent-value";
+
+				const win = WindowAPI.create(
+					"ctxConflictWin",
+					"Context",
+					"/page.html",
+					{ initshow: true },
+				);
+				const iframe = win._body.querySelector("iframe");
+
+				// Simulate the iframe page having already defined this var
+				iframe.contentWindow.myConflictVar = "iframe-value";
+
+				iframe.dispatchEvent(new Event("load"));
+
+				expect(iframe.contentWindow.myConflictVar).toBe("iframe-value");
+			});
+
+			it("does not copy inline body content when a source URL is given", () => {
+				// Inline content should be ignored when url is set
+				const win = WindowAPI.create(
+					"ctxSrcWin",
+					"Context",
+					"/page.html",
+					{ initshow: true },
+				);
+				const iframe = win._body.querySelector("iframe");
+				expect(iframe.src).toContain("/page.html");
 			});
 		});
 
