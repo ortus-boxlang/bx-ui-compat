@@ -30,7 +30,11 @@
 	width: 100%;
 	border-collapse: collapse;
 	border-spacing: 0;
-	font-size: 13px;
+	font-size: 12px;
+}
+
+.bx-grid-table td {
+	font-size: 0.95em;
 }
 
 /* ===== Header ===== */

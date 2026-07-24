@@ -158,18 +158,27 @@
 						try {
 							data = JSON.parse(data);
 						} catch (e) {
-							// If not JSON, treat as HTML and replace grid content
-							grid.innerHTML = data;
+							// HTML or plain text — inject into tbody if exists
+							var t = grid.querySelector("tbody");
+							if (t) {
+								t.innerHTML =
+									'<tr><td colspan="100%">' +
+									data +
+									"</td></tr>";
+							}
 							return data;
 						}
 					}
-
-					// Normalize CF query format (COLUMNS/DATA) to object-array format
-					data =
+					if (!data || typeof data !== "object") {
+						return data;
+					}
+					var normalized =
 						BoxLangAjax.components.grid._normalizeQueryData(data);
-
-					BoxLangAjax.components.grid.renderGrid(gridId, data);
-					return data;
+					if (!normalized || !normalized.data) {
+						return data;
+					}
+					BoxLangAjax.components.grid.renderGrid(gridId, normalized);
+					return normalized;
 				})
 				.catch(function (error) {
 					BoxLangAjax.components.grid.showError(gridId, error);
@@ -185,40 +194,92 @@
 		 * Our format: { data: [{ col: val }, ...], totalRows: N }
 		 */
 		_normalizeQueryData: function (data) {
-			// Already in our format — pass through but backfill top-level keys
-			if (data && data.data && Array.isArray(data.data)) {
-				if (data.TOTALROWCOUNT !== undefined) {
-					data.totalRows = data.TOTALROWCOUNT;
+			if (!data) return data;
+
+			// Find the QUERY wrapper object (case-insensitive)
+			var queryObj = null;
+			for (var key in data) {
+				if (data.hasOwnProperty(key) && key.toUpperCase() === "QUERY") {
+					queryObj = data[key];
+					break;
 				}
-				if (data.PAGE !== undefined) {
-					data.page = data.PAGE;
+			}
+			if (!queryObj) return data;
+
+			// Find COLUMNS and DATA arrays (case-insensitive)
+			var columns = null;
+			var rows = null;
+			for (var key in queryObj) {
+				if (queryObj.hasOwnProperty(key)) {
+					var upper = key.toUpperCase();
+					if (upper === "COLUMNS") columns = queryObj[key];
+					if (upper === "DATA") rows = queryObj[key];
 				}
-				if (data.PAGESIZE !== undefined) {
-					data.pageSize = data.PAGESIZE;
+			}
+			if (!columns || !rows) return data;
+
+			// Find TOTALROWCOUNT (case-insensitive)
+			var totalRows = rows.length;
+			for (var key in data) {
+				if (
+					data.hasOwnProperty(key) &&
+					key.toUpperCase() === "TOTALROWCOUNT"
+				) {
+					totalRows = data[key];
+					break;
 				}
-				return data;
 			}
 
-			// CF query format: { QUERY: { COLUMNS: [...], DATA: [[...]] }, TOTALROWCOUNT: N }
-			if (data && data.QUERY && data.QUERY.COLUMNS && data.QUERY.DATA) {
-				var columns = data.QUERY.COLUMNS;
-				var rows = data.QUERY.DATA;
-				return {
-					data: rows.map(function (row) {
-						var obj = {};
-						for (var i = 0; i < columns.length; i++) {
-							obj[columns[i]] = row[i] != null ? row[i] : "";
-						}
-						return obj;
-					}),
-					totalRows: data.TOTALROWCOUNT || rows.length,
-					page: data.PAGE || 1,
-					pageSize: data.PAGESIZE || rows.length,
-				};
-			}
+			return {
+				data: rows.map(function (row) {
+					var obj = {};
+					for (var i = 0; i < columns.length; i++) {
+						obj[columns[i]] = row[i] != null ? row[i] : "";
+					}
+					return obj;
+				}),
+				totalRows: totalRows,
+				page: data.PAGE || data.page || 1,
+				pageSize: data.PAGESIZE || data.pagesize || rows.length,
+			};
+		},
 
-			// Unknown format — pass through
-			return data;
+		/**
+		 * Rebuild the grid's table structure if it has been corrupted.
+		 */
+		_ensureGridStructure: function (grid, data) {
+			if (!data || !data.data || !data.data[0]) return null;
+			var headers = Object.keys(data.data[0]);
+			var thead = grid.querySelector("thead");
+			if (!thead) {
+				thead = document.createElement("thead");
+				thead.className = "bx-grid-header";
+				var tr = document.createElement("tr");
+				headers.forEach(function (col) {
+					var th = document.createElement("th");
+					th.className = "bx-grid-column-header";
+					th.dataset.column = col;
+					th.textContent = col;
+					tr.appendChild(th);
+				});
+				thead.appendChild(tr);
+			}
+			var table = grid.querySelector(".bx-grid-table");
+			if (!table) {
+				table = document.createElement("table");
+				table.className = "bx-grid-table";
+				grid.appendChild(table);
+			}
+			if (thead.parentNode !== table) {
+				table.insertBefore(thead, table.firstChild);
+			}
+			var tbody = table.querySelector("tbody");
+			if (!tbody) {
+				tbody = document.createElement("tbody");
+				tbody.className = "bx-grid-body";
+				table.appendChild(tbody);
+			}
+			return tbody;
 		},
 
 		/**
@@ -228,10 +289,15 @@
 			const grid = document.getElementById(gridId);
 			if (!grid) return;
 
-			const tbody = grid.querySelector("tbody");
-			const pagination = grid.querySelector(".bx-grid-pagination");
+			var tbody = grid.querySelector("tbody");
 
-			if (!tbody) return;
+			// If the grid's structure has been corrupted, rebuild it
+			if (!tbody || !grid.querySelector(".bx-grid-table")) {
+				tbody = this._ensureGridStructure(grid, data);
+				if (!tbody) return;
+			}
+
+			var pagination = grid.querySelector(".bx-grid-pagination");
 
 			// Clear existing rows
 			tbody.innerHTML = "";
@@ -601,7 +667,7 @@
 	// Auto-load grid data
 	function autoLoadGridData() {
 		document
-			.querySelectorAll(".bx-grid[data-source], .bx-grid[data-bind]")
+			.querySelectorAll(".bx-grid[data-source]")
 			.forEach(function (grid) {
 				if (grid.id) {
 					const delay = parseInt(grid.dataset.loadDelay) || 0;

@@ -235,7 +235,7 @@
 	// Auto-load content for layout areas with data-source
 	function autoLoadLayoutContent() {
 		document
-			.querySelectorAll(".bx-layout [data-source]")
+			.querySelectorAll(".bx-layout [data-source]:not(.bx-grid)")
 			.forEach(function (area) {
 				const url = area.dataset.source;
 				const delay = parseInt(area.dataset.loadDelay) || 0;

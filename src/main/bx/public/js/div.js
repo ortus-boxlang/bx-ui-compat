@@ -230,7 +230,9 @@
 		document.addEventListener(
 			"mouseenter",
 			function (event) {
-				const div = event.target.closest(".bx-div[data-hover-url]");
+				var target = event.target;
+				if (!target || !target.closest) return;
+				const div = target.closest(".bx-div[data-hover-url]");
 				if (div && !div.dataset.hoverLoaded) {
 					const url = div.dataset.hoverUrl;
 					const delay = parseInt(div.dataset.hoverDelay) || 500;
