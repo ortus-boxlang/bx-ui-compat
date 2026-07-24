@@ -78,7 +78,7 @@
 
 /* ===== Cells ===== */
 .bx-grid-cell {
-	padding: 8px 13px;
+	padding: 2px;
 	vertical-align: middle;
 	border-right: 1px solid #f0f0f0;
 }
