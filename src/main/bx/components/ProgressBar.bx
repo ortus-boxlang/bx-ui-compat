@@ -78,6 +78,12 @@ class{
 			);
 		}
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "progressbar" ) ){
+			bx:ajaximport tags="progressbar";
+		}
+
 		// Resolve ID
 		if( isNull( attributes.id ) || !len( attributes.id ?: "" ) ){
 			attributes.id = attributes.name;

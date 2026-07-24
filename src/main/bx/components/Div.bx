@@ -45,6 +45,12 @@ class{
 		param attributes.class = "";
 		param attributes.style = "";
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "div" ) ){
+			bx:ajaximport tags="div";
+		}
+
 		// Validate tagName attribute
 		var validTagNames = [ "div", "span", "p", "section", "article", "aside", "header", "footer", "main", "nav" ];
 		if( !validTagNames.containsNoCase( attributes.tagName ) ){

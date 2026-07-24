@@ -56,6 +56,12 @@ class{
 			);
 		}
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "layout" ) ){
+			bx:ajaximport tags="layout";
+		}
+
 		// Set default values
 		param attributes.align = "";
 		param attributes.fillHeight = false;

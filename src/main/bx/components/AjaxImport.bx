@@ -42,6 +42,11 @@ class{
 
 		var output = "";
 
+		param request.$bxUICompat.importedTags = {
+			"css" : [],
+			"js" : []
+		};
+
 		// Import CSS files
 		output &= generateCSSImports( attributes );
 
@@ -67,7 +72,6 @@ class{
 		cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />" & System.lineSeparator();
 
 		// Tag-specific CSS
-		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
@@ -76,25 +80,30 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout"; // Normalize to "layout" since it includes multiple related CSS files
 				}
-				if( importedTags.contains( tagName ) ){
+				if( request.$bxUICompat.importedTags.css.contains( tagName ) ){
 					continue; // Skip if already imported
 				}
 				if( tagName == "layout" ){
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout.css"" />" & System.lineSeparator();
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />" & System.lineSeparator();
-					importedTags.append( "layout" );
+					request.$bxUICompat.importedTags.css.append( "layout" );
 				} else {
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tagName#.css"" />";
-					importedTags.append( tagName );
+					request.$bxUICompat.importedTags.css.append( tagName );
 				}
 			}
 		} else {
 			// Import all common AJAX CSS files
-			var commonTags = [ "layout", "div", "grid", "tooltip", "pod" ];
+			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "tooltip", "progressbar", "window" ];
 			for( var tag in commonTags ){
+				if( request.$bxUICompat.importedTags.css.contains( tag ) ){
+					continue; // Skip if already imported
+				}
 				cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tag#.css"" />";
+				request.$bxUICompat.importedTags.css.append( tag );
 				if( tag == "layout" ){
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />";
+					request.$bxUICompat.importedTags.css.append( "layout-components" );
 				}
 			}
 		}
@@ -114,7 +123,6 @@ class{
 		jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>" & System.lineSeparator();
 
 		// Tag-specific JavaScript
-		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
@@ -122,17 +130,21 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout";
 				}
-				if( importedTags.contains( tagName ) ){
+				if( request.$bxUICompat.importedTags.js.contains( tagName ) ){
 					continue; // Skip if already imported
 				}
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>" & System.lineSeparator();
-				importedTags.append( tagName );
+				request.$bxUICompat.importedTags.js.append( tagName );
 			}
 		} else {
 			// Import all common AJAX JavaScript files
-			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy", "window" ];
+			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy", "progressbar", "window" ];
 			for( var tag in commonTags ){
+				if( request.$bxUICompat.importedTags.js.contains( tag ) ){
+					continue; // Skip if already imported
+				}
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#tag#.js""></script>" & System.lineSeparator();
+				request.$bxUICompat.importedTags.js.append( tag );
 			}
 		}
 

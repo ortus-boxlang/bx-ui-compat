@@ -80,6 +80,12 @@ class{
 		param attributes.refreshOnShow  = false;
 		param attributes.onBindError    = "";
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "window" ) ){
+			bx:ajaximport tags="window";
+		}
+
 		// ---- Auto-generate id if not supplied --------------------------------------------
 		if( isNull( attributes.id ) || !len( trim( attributes.id ) ) ){
 			attributes.id = "window_" & listLast( lcase( createUUID() ), "-" );

@@ -98,6 +98,12 @@ class{
 			);
 		}
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "grid" ) ){
+			bx:ajaximport tags="grid";
+		}
+
 		// Set default values
 		param attributes.query = "";
 		param attributes.pageSize = 25;

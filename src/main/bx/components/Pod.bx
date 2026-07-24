@@ -62,6 +62,12 @@ class{
 			);
 		}
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "pod" ) ){
+			bx:ajaximport tags="pod";
+		}
+
 		// Generate unique ID if not provided
 		if( isNull( attributes.id ) ){
 			attributes.id = "pod_" & listLast( lcase( createUUID() ), "-" );
