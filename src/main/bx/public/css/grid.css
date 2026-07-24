@@ -85,6 +85,8 @@
 	padding: 2px;
 	vertical-align: middle;
 	border-right: 1px solid #f0f0f0;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .bx-grid-cell:last-child {
@@ -123,11 +125,41 @@
 	background-color: #d4e2f4 !important;
 }
 
+/* Selected row horizontal borders */
+.bx-grid-body .bx-grid-row.bx-grid-row-selected {
+	background-color: #e2ecf7;
+	border-bottom-color: #4a90d9;
+}
+
+/* Use box-shadow on all cells to draw a visible blue top border
+   (box-shadow isn't affected by border-collapse) */
+.bx-grid-body .bx-grid-row.bx-grid-row-selected .bx-grid-cell {
+	box-shadow: inset 0 1px 0 0 #4a90d9;
+}
+
+/* Selected row first cell - blue left border to indicate selection */
+.bx-grid-body .bx-grid-row.bx-grid-row-selected .bx-grid-cell:first-child {
+	border-left: 1px solid #4a90d9;
+}
+
+/* Selected row last cell - blue right border */
+.bx-grid-body .bx-grid-row.bx-grid-row-selected .bx-grid-cell:last-child {
+	border-right: 1px solid #4a90d9;
+}
+
+/* Selected row vertical borders (apply to first/last cell) */
+.bx-grid-body .bx-grid-row.bx-grid-row-selected .bx-grid-cell:first-child {
+	border-left: 1px solid #4a90d9;
+}
+
+.bx-grid-body .bx-grid-row.bx-grid-row-selected .bx-grid-cell:last-child {
+	border-right: 1px solid #4a90d9;
+}
+
 /* Cell-level selection (single/edit mode) */
 .bx-grid-cell.bx-grid-cell-selected {
 	background-color: #e2ecf7;
-	outline: 2px solid #4a90d9;
-	outline-offset: -2px;
+	border-color: #4a90d9;
 }
 
 /* Column selection */
@@ -173,9 +205,9 @@
 }
 
 .bx-grid-editable .bx-grid-editable-cell:focus {
-	outline: 2px solid #4a90d9;
-	outline-offset: -2px;
 	background-color: #fff;
+	outline: 1px solid #4a90d9;
+	outline-offset: -1px;
 }
 
 /* ===== Pagination ===== */

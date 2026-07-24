@@ -182,7 +182,6 @@
 
 .bx-border-center {
 	grid-area: center;
-	overflow: auto;
 }
 
 .bx-border-area {
