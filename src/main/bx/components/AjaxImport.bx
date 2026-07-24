@@ -12,6 +12,8 @@
 @RequiresBody( false )
 class{
 
+	variables.validCompatTag = [ "button", "chart", "div", "fileupload", "form", "grid", "input-datefield", "layout", "layout-accordion", "layout-border", "layout-tab", "map", "messagebox", "pod", "progressbar", "slider", "textarea", "tooltip", "window"]
+	variables.moduleSupportedTags = [ "div", "grid", "layout", "pod", "progressbar", "tooltip", "window" ];
 	/**
 	 * The AjaxImport UI component
 	 *
@@ -80,8 +82,14 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout"; // Normalize to "layout" since it includes multiple related CSS files
 				}
-				if( request.$bxUICompat.importedTags.css.contains( tagName ) ){
-					continue; // Skip if already imported
+				if( !variables.validCompatTag.contains( tagName ) ){
+					throw(
+						type		= "boxlang.compat.ui.InvalidAttributeException",
+						message		= "The requested import tag #tagName# is invalid. Valid tags are: #variables.validCompatTag.toList()#"
+					);
+				} else if( !variables.moduleSupportedTags.contains( tagName ) || request.$bxUICompat.importedTags.css.contains( tagName ) ){
+					// Skip tags that are not supported by this module or have already been imported
+					continue;
 				}
 				if( tagName == "layout" ){
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout.css"" />" & System.lineSeparator();
@@ -130,8 +138,14 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout";
 				}
-				if( request.$bxUICompat.importedTags.js.contains( tagName ) ){
-					continue; // Skip if already imported
+				if( !variables.validCompatTag.contains( tagName ) ){
+					throw(
+						type		= "boxlang.compat.ui.InvalidAttributeException",
+						message		= "The requested import tag #tagName# is invalid. Valid tags are: #variables.validCompatTag.toList()#"
+					);
+				} else if( !variables.moduleSupportedTags.contains( tagName ) || request.$bxUICompat.importedTags.js.contains( tagName ) ){
+					// Skip tags that are not supported by this module or have already been imported
+					continue;
 				}
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>" & System.lineSeparator();
 				request.$bxUICompat.importedTags.js.append( tagName );
