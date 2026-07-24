@@ -173,9 +173,26 @@ class{
 	 * Generate bind functionality script
 	 */
 	private function generateBindScript( required bindExpression, required bindOnLoad, errorHandler = "" ){
+		// Parse {gridName.columnName} tokens from the bind expression
+		var gridTokens = parseGridBindTokens( bindExpression );
+		var registerJS = "";
+		if( gridTokens.len() ){
+			for( var token in gridTokens ){
+				registerJS &= "BXUICompat.Bind.registerGridDependent('" & token.gridName & "', divElement.id, function() { executeBind(); });";
+			}
+		}
+
+		// Defer initial bind when grid tokens are present — gridSelectionChange fires it
+		var hasGridTokens = gridTokens.len() > 0;
+
 		return "
 			function executeBind() {
 				var bindUrl = '#encodeForJavaScript( bindExpression )#';
+
+				// Resolve {gridName.columnName} tokens via central bind handler
+				if (window.BXUICompat && window.BXUICompat.Bind && window.BXUICompat.Bind.resolveBindExpression) {
+					bindUrl = window.BXUICompat.Bind.resolveBindExpression(bindUrl);
+				}
 
 				// Parse different types of bind expressions
 				if (bindUrl.startsWith('cfc:')) {
@@ -195,7 +212,11 @@ class{
 						return response.text();
 					})
 					.then(function(content) {
-						divElement.innerHTML = content;
+						// Strip CSS <link> tags to avoid re-fetching stylesheets on every bind
+						var div = document.createElement('div');
+						div.innerHTML = content;
+						div.querySelectorAll('link[rel=stylesheet]').forEach(function(link) { link.remove(); });
+						divElement.innerHTML = div.innerHTML;
 						divElement.classList.remove('bx-bind-loading');
 						divElement.classList.add('bx-bind-loaded');
 
@@ -220,11 +241,47 @@ class{
 					});
 			}
 
-			// Execute bind on load if specified
-			#bindOnLoad ? 'document.addEventListener("DOMContentLoaded", function() { executeBind(); });' : ''#
+			#registerJS#
+
+			// With grid tokens, initial bind is deferred — gridSelectionChange fires it
+			// after grid data loads and auto-selects the first row.
+			// Without grid tokens, fire on DOMContentLoaded as before.
+			#bindOnLoad && !hasGridTokens ? 'document.addEventListener("DOMContentLoaded", function() { executeBind(); });' : ''#
 
 			// Expose function for manual triggering
 			divElement.executeBind = executeBind;
 		";
+	}
+
+	/**
+	 * Parse {gridName.columnName} tokens from a bind expression.
+	 * Returns an array of structs: [{ gridName: "gridTables", columnName: "LocID" }, ...]
+	 */
+	private function parseGridBindTokens( required bindExpression ){
+		var tokens = [];
+		var pos = 1;
+		while( pos <= len( bindExpression ) ){
+			// Find next '{'
+			var braceStart = find( "{", bindExpression, pos );
+			if( braceStart == 0 ) break;
+
+			// Find matching '}'
+			var braceEnd = find( "}", bindExpression, braceStart + 1 );
+			if( braceEnd == 0 ) break;
+
+			// Extract the token content between { and }
+			var tokenContent = mid( bindExpression, braceStart + 1, braceEnd - braceStart - 1 );
+
+			// Check if it's a gridName.columnName pattern (contains a . but no :)
+			if( find( ".", tokenContent ) > 0 && find( ":", tokenContent ) == 0 ){
+				var dotPos = find( ".", tokenContent );
+				var gridName = left( tokenContent, dotPos - 1 );
+				var columnName = mid( tokenContent, dotPos + 1, len( tokenContent ) - dotPos );
+				tokens.append( { gridName: gridName, columnName: columnName } );
+			}
+
+			pos = braceEnd + 1;
+		}
+		return tokens;
 	}
 }

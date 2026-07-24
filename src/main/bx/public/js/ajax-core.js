@@ -1312,6 +1312,65 @@ $C.Bind = (function () {
 	}
 	urlBindHandler._cf_bindhandler = true;
 
+	// -----------------------------------------------------------------------
+	// Grid-dependent component registry
+	// -----------------------------------------------------------------------
+	var _gridDependents = {};
+
+	function registerGridDependent(gridName, dependentId, executeFn) {
+		if (!_gridDependents[gridName]) {
+			_gridDependents[gridName] = [];
+		}
+		var deps = _gridDependents[gridName];
+		for (var i = 0; i < deps.length; i++) {
+			if (deps[i].dependentId === dependentId) return;
+		}
+		deps.push({ dependentId: dependentId, executeFn: executeFn });
+	}
+
+	function unregisterGridDependent(gridName, dependentId) {
+		if (!_gridDependents[gridName]) return;
+		_gridDependents[gridName] = _gridDependents[gridName].filter(
+			function (dep) {
+				return dep.dependentId !== dependentId;
+			},
+		);
+	}
+
+	function resolveGridColumnValue(gridName, columnName) {
+		var grid = document.querySelector('[data-name="' + gridName + '"]');
+		if (!grid) {
+			grid = document.getElementById(gridName);
+		}
+		if (!grid || !grid.dataset.selectedRowData) return "";
+		try {
+			var rowData = JSON.parse(grid.dataset.selectedRowData);
+			// Try exact match first, then case-insensitive
+			if (rowData[columnName] !== undefined) return rowData[columnName];
+			var lowerCol = columnName.toLowerCase();
+			for (var key in rowData) {
+				if (
+					rowData.hasOwnProperty(key) &&
+					key.toLowerCase() === lowerCol
+				) {
+					return rowData[key];
+				}
+			}
+			return "";
+		} catch (e) {
+			return "";
+		}
+	}
+
+	function resolveBindExpression(bindExpression) {
+		return bindExpression.replace(
+			/\{(\w+)\.(\w+)\}/g,
+			function (match, gridName, columnName) {
+				return resolveGridColumnValue(gridName, columnName);
+			},
+		);
+	}
+
 	return {
 		register: register,
 		assignValue: assignValue,
@@ -1320,6 +1379,11 @@ $C.Bind = (function () {
 		jsBindHandler: jsBindHandler,
 		urlBindHandler: urlBindHandler,
 		evaluateBindTemplate: _evaluateBindTemplate,
+		registerGridDependent: registerGridDependent,
+		unregisterGridDependent: unregisterGridDependent,
+		resolveGridColumnValue: resolveGridColumnValue,
+		resolveBindExpression: resolveBindExpression,
+		_gridDependents: _gridDependents,
 	};
 })();
 
@@ -1617,6 +1681,27 @@ function initBoxLangAjax() {
 				BoxLangAjax.utils.submitForm(form, form.dataset.ajaxTarget);
 			});
 		});
+
+	// Listen for gridSelectionChange events and trigger registered dependents
+	document.addEventListener("gridSelectionChange", function (event) {
+		var gridName = event.detail && event.detail.gridName;
+		if (!gridName) return;
+		var deps = $C.Bind._gridDependents && $C.Bind._gridDependents[gridName];
+		if (deps && deps.length) {
+			deps.forEach(function (dep) {
+				try {
+					dep.executeFn();
+				} catch (err) {
+					console.error(
+						"[BXUICompat.Bind] Error executing dependent " +
+							dep.dependentId +
+							":",
+						err,
+					);
+				}
+			});
+		}
+	});
 
 	$L.info("BoxLang AJAX + BXUICompat initialised successfully", "core");
 }

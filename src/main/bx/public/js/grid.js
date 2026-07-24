@@ -18,6 +18,93 @@
 		_controllers: new Map(),
 
 		/**
+		 * Resolve bind variable tokens from data-bind-params to live DOM values.
+		 *
+		 * Reads the grid's data-bind-params attribute (comma-separated token list
+		 * like "{cfgridpage},{cfgridpagesize},{tableform:inputName}") and resolves
+		 * each token to its current value.
+		 *
+		 * Grid-internal tokens:
+		 *   cfgridpage        → grid.dataset.currentPage || 1
+		 *   cfgridpagesize    → grid.dataset.pageSize || 25
+		 *   cfgridsortcolumn  → grid.dataset.currentSort || ""
+		 *   cfgridsortdirection → (grid.dataset.currentOrder || "asc").toUpperCase()
+		 *
+		 * Form-scoped tokens (formName:fieldName) and bare tokens delegate to
+		 * BXUICompat.Bind.getBindElementValue().
+		 *
+		 * @param {string} gridId - The grid element ID
+		 * @returns {Object} Resolved key/value pairs to append as query params
+		 */
+		resolveBindParams: function (gridId) {
+			const grid = document.getElementById(gridId);
+			if (!grid) return {};
+
+			const bindParamsStr = grid.dataset.bindParams;
+			if (!bindParamsStr) return {};
+
+			const result = {};
+			const tokens = bindParamsStr.split(",");
+
+			for (let token of tokens) {
+				token = token.trim();
+				// Strip leading { and trailing }
+				token = token.replace(/^\{/, "").replace(/\}$/, "");
+				if (!token) continue;
+
+				let paramName, value;
+
+				// Grid-internal tokens
+				if (token === "cfgridpage") {
+					paramName = "page";
+					value = grid.dataset.currentPage || 1;
+				} else if (token === "cfgridpagesize") {
+					paramName = "pagesize";
+					value = grid.dataset.pageSize || 25;
+				} else if (token === "cfgridsortcolumn") {
+					paramName = "gridsortcolumn";
+					value = grid.dataset.currentSort || "";
+				} else if (token === "cfgridsortdirection") {
+					paramName = "gridsortdirection";
+					value = (grid.dataset.currentOrder || "asc").toUpperCase();
+				} else if (token.includes(":")) {
+					// Form-scoped: formName:fieldName
+					const colonPos = token.indexOf(":");
+					const formName = token.substring(0, colonPos);
+					const fieldName = token.substring(colonPos + 1);
+					paramName = fieldName;
+					value =
+						window.BXUICompat &&
+						window.BXUICompat.Bind &&
+						window.BXUICompat.Bind.getBindElementValue
+							? window.BXUICompat.Bind.getBindElementValue(
+									fieldName,
+									formName,
+								)
+							: "";
+				} else {
+					// Bare field name (no colon, no grid prefix)
+					paramName = token;
+					value =
+						window.BXUICompat &&
+						window.BXUICompat.Bind &&
+						window.BXUICompat.Bind.getBindElementValue
+							? window.BXUICompat.Bind.getBindElementValue(
+									token,
+									null,
+								)
+							: "";
+				}
+
+				if (value !== null && value !== undefined) {
+					result[paramName] = value;
+				}
+			}
+
+			return result;
+		},
+
+		/**
 		 * Load grid data with pagination
 		 */
 		loadData: function (
@@ -46,6 +133,12 @@
 				sortOrder: sortOrder,
 			});
 
+			// Merge resolved bind variable values into the query string
+			const bindParams = this.resolveBindParams(gridId);
+			for (const [key, value] of Object.entries(bindParams)) {
+				params.append(key, value);
+			}
+
 			const fullUrl =
 				url + (url.includes("?") ? "&" : "?") + params.toString();
 
@@ -61,7 +154,6 @@
 			return BoxLangAjax.utils
 				.fetchContent(fullUrl, { signal: controller.signal })
 				.then(function (data) {
-					// Assume data is JSON with { data: rows[], totalRows: number }
 					if (typeof data === "string") {
 						try {
 							data = JSON.parse(data);
@@ -72,6 +164,10 @@
 						}
 					}
 
+					// Normalize CF query format (COLUMNS/DATA) to object-array format
+					data =
+						BoxLangAjax.components.grid._normalizeQueryData(data);
+
 					BoxLangAjax.components.grid.renderGrid(gridId, data);
 					return data;
 				})
@@ -79,6 +175,50 @@
 					BoxLangAjax.components.grid.showError(gridId, error);
 					throw error;
 				});
+		},
+
+		/**
+		 * Normalize a CF-serialized query object into the { data: [...], totalRows: N } format
+		 * that renderGrid() expects.
+		 *
+		 * CF format:  { QUERY: { COLUMNS: [...], DATA: [[...]] }, TOTALROWCOUNT: N }
+		 * Our format: { data: [{ col: val }, ...], totalRows: N }
+		 */
+		_normalizeQueryData: function (data) {
+			// Already in our format — pass through but backfill top-level keys
+			if (data && data.data && Array.isArray(data.data)) {
+				if (data.TOTALROWCOUNT !== undefined) {
+					data.totalRows = data.TOTALROWCOUNT;
+				}
+				if (data.PAGE !== undefined) {
+					data.page = data.PAGE;
+				}
+				if (data.PAGESIZE !== undefined) {
+					data.pageSize = data.PAGESIZE;
+				}
+				return data;
+			}
+
+			// CF query format: { QUERY: { COLUMNS: [...], DATA: [[...]] }, TOTALROWCOUNT: N }
+			if (data && data.QUERY && data.QUERY.COLUMNS && data.QUERY.DATA) {
+				var columns = data.QUERY.COLUMNS;
+				var rows = data.QUERY.DATA;
+				return {
+					data: rows.map(function (row) {
+						var obj = {};
+						for (var i = 0; i < columns.length; i++) {
+							obj[columns[i]] = row[i] != null ? row[i] : "";
+						}
+						return obj;
+					}),
+					totalRows: data.TOTALROWCOUNT || rows.length,
+					page: data.PAGE || 1,
+					pageSize: data.PAGESIZE || rows.length,
+				};
+			}
+
+			// Unknown format — pass through
+			return data;
 		},
 
 		/**
@@ -105,7 +245,8 @@
 			// Render rows
 			data.data.forEach(function (row, index) {
 				const tr = document.createElement("tr");
-				tr.dataset.rowIndex = index;
+				tr.classList.add("bx-grid-row");
+				tr.dataset.row = index + 1;
 
 				// Get column definitions from header
 				const headers = grid.querySelectorAll("thead th");
@@ -114,6 +255,8 @@
 						header.dataset.column ||
 						header.textContent.toLowerCase().replace(/\s+/g, "_");
 					const td = document.createElement("td");
+					td.classList.add("bx-grid-cell");
+					td.dataset.column = columnName;
 					td.textContent = row[columnName] || "";
 					tr.appendChild(td);
 				});
@@ -126,9 +269,59 @@
 				this.updatePagination(gridId, data);
 			}
 
+			// Auto-select first row after AJAX render
+			this._autoSelectAfterRender(gridId);
+
 			// Trigger grid rendered event
 			const event = new CustomEvent("grid-rendered", {
 				detail: { gridId: gridId, data: data },
+				bubbles: true,
+			});
+			grid.dispatchEvent(event);
+		},
+
+		/**
+		 * Auto-select the first row after an AJAX render when selectOnLoad is true.
+		 * Called internally by renderGrid().
+		 */
+		_autoSelectAfterRender: function (gridId) {
+			const grid = document.getElementById(gridId);
+			if (!grid) return;
+			if (grid.dataset.selectOnLoad !== "true") return;
+
+			const firstRow = grid.querySelector(".bx-grid-row");
+			if (!firstRow) return;
+
+			// Build selectedRowData from the first row's cells
+			var rowData = {};
+			firstRow.querySelectorAll(".bx-grid-cell").forEach(function (cell) {
+				var colName = cell.dataset.column;
+				if (colName) {
+					rowData[colName] = cell.textContent.trim();
+				}
+			});
+			grid.dataset.selectedRowData = JSON.stringify(rowData);
+
+			// Update hidden selection input
+			var hiddenInput = document.getElementById(gridId + "_selection");
+			if (hiddenInput) {
+				hiddenInput.value = String(firstRow.dataset.row || "1");
+			}
+
+			// Highlight the row
+			firstRow.classList.add("bx-grid-row-selected");
+			firstRow.querySelectorAll(".bx-grid-cell").forEach(function (c) {
+				c.classList.add("bx-grid-cell-selected");
+			});
+
+			// Dispatch selection change event
+			var event = new CustomEvent("gridSelectionChange", {
+				detail: {
+					gridName: grid.dataset.name,
+					selectedRowIndex: parseInt(firstRow.dataset.row) || 1,
+					selectedRowIndices: [parseInt(firstRow.dataset.row) || 1],
+					selectedRowData: rowData,
+				},
 				bubbles: true,
 			});
 			grid.dispatchEvent(event);
@@ -408,7 +601,7 @@
 	// Auto-load grid data
 	function autoLoadGridData() {
 		document
-			.querySelectorAll(".bx-grid[data-source]")
+			.querySelectorAll(".bx-grid[data-source], .bx-grid[data-bind]")
 			.forEach(function (grid) {
 				if (grid.id) {
 					const delay = parseInt(grid.dataset.loadDelay) || 0;

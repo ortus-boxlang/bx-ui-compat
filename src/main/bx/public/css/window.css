@@ -3,6 +3,21 @@
 	display: none !important;
 }
 
+/* Shared font baseline for window */
+dialog.bx-window {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
 /* dialog[open] is the only state where flex layout should apply.
    Without [open], the browser sets display:none; overriding that here
    would break dialog.close(). */

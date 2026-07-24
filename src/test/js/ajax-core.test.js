@@ -500,4 +500,77 @@ describe("ajax-core.js", () => {
 			).rejects.toThrow("Container not found");
 		});
 	});
+
+	describe("BXUICompat.Bind grid-dependent registry", () => {
+		let $B;
+
+		beforeEach(() => {
+			$B = window.BXUICompat.Bind;
+			document.body.innerHTML = "";
+		});
+
+		it("resolveGridColumnValue returns column value when selectedRowData exists", () => {
+			document.body.innerHTML =
+				'<div id="myGrid" data-name="myGrid" data-selected-row-data=\'{"LocID":"LOC123","Name":"Test"}\'></div>';
+			expect($B.resolveGridColumnValue("myGrid", "LocID")).toBe("LOC123");
+			expect($B.resolveGridColumnValue("myGrid", "Name")).toBe("Test");
+		});
+
+		it("resolveGridColumnValue returns empty string when column not in data", () => {
+			document.body.innerHTML =
+				'<div id="myGrid" data-name="myGrid" data-selected-row-data=\'{"LocID":"LOC123"}\'></div>';
+			expect($B.resolveGridColumnValue("myGrid", "MissingCol")).toBe("");
+		});
+
+		it("resolveGridColumnValue returns empty string when no selectedRowData", () => {
+			document.body.innerHTML =
+				'<div id="myGrid" data-name="myGrid"></div>';
+			expect($B.resolveGridColumnValue("myGrid", "LocID")).toBe("");
+		});
+
+		it("resolveGridColumnValue returns empty string when grid not found", () => {
+			expect($B.resolveGridColumnValue("nonexistent", "LocID")).toBe("");
+		});
+
+		it("registerGridDependent and unregisterGridDependent work end-to-end", () => {
+			const fn = vi.fn();
+			// Register
+			$B.registerGridDependent("gridTables", "div1", fn);
+			// Register again with same id — should not duplicate
+			$B.registerGridDependent("gridTables", "div1", fn);
+			// Unregister
+			$B.unregisterGridDependent("gridTables", "div1");
+
+			// After unregister, dispatch should NOT trigger the fn
+			document.body.innerHTML =
+				'<div id="gridTables" data-name="gridTables"></div>';
+			const event = new CustomEvent("gridSelectionChange", {
+				detail: { gridName: "gridTables" },
+				bubbles: true,
+			});
+			document.getElementById("gridTables").dispatchEvent(event);
+			expect(fn).not.toHaveBeenCalled();
+		});
+
+		it("gridSelectionChange triggers registered dependents", () => {
+			document.body.innerHTML =
+				'<div id="gridTables" data-name="gridTables"></div>';
+			const fn = vi.fn();
+			$B.registerGridDependent("gridTables", "div1", fn);
+			const event = new CustomEvent("gridSelectionChange", {
+				detail: { gridName: "gridTables" },
+			});
+			document.dispatchEvent(event);
+			expect(fn).toHaveBeenCalled();
+		});
+
+		it("resolveBindExpression replaces grid tokens", () => {
+			document.body.innerHTML =
+				'<div id="myGrid" data-name="myGrid" data-selected-row-data=\'{"LocID":"LOC123"}\'></div>';
+			const result = $B.resolveBindExpression(
+				"url:page.cfm?id={myGrid.LocID}&name={myGrid.Name}",
+			);
+			expect(result).toBe("url:page.cfm?id=LOC123&name=");
+		});
+	});
 });

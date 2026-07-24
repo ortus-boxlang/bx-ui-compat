@@ -261,6 +261,162 @@ describe("grid.js", () => {
 				vi.restoreAllMocks();
 			});
 		});
+
+		describe("resolveBindParams", () => {
+			it("returns empty object when no data-bind-params", () => {
+				document.body.innerHTML =
+					'<table id="myGrid" class="bx-grid" data-source="/api/data"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result).toEqual({});
+			});
+
+			it("maps cfgridpage to current page number", () => {
+				document.body.innerHTML =
+					'<table id="myGrid" class="bx-grid" data-source="/api/data" data-bind-params="{cfgridpage}" data-current-page="3"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result.page).toBe("3");
+			});
+
+			it("maps cfgridpagesize to page size", () => {
+				document.body.innerHTML =
+					'<table id="myGrid" class="bx-grid" data-source="/api/data" data-bind-params="{cfgridpagesize}" data-page-size="10"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result.pagesize).toBe("10");
+			});
+
+			it("maps cfgridsortcolumn and cfgridsortdirection", () => {
+				document.body.innerHTML =
+					'<table id="myGrid" class="bx-grid" data-source="/api/data" data-bind-params="{cfgridsortcolumn},{cfgridsortdirection}" data-current-sort="name" data-current-order="desc"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result.gridsortcolumn).toBe("name");
+				expect(result.gridsortdirection).toBe("DESC");
+			});
+
+			it("resolves formName:fieldName via BXUICompat.Bind", () => {
+				// Set up a mock form element that getBindElementValue can find
+				document.body.innerHTML = `
+					<form id="testForm"><input name="inputName" value="formValue"></form>
+					<table id="myGrid" class="bx-grid" data-bind-params="{testForm:inputName}"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>`;
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result.inputName).toBe("formValue");
+			});
+
+			it("resolves bare field name via BXUICompat.Bind", () => {
+				document.body.innerHTML =
+					'<input id="searchBox" name="searchBox" value="testSearch"><table id="myGrid" class="bx-grid" data-bind-params="{searchBox}"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				expect(result.searchBox).toBe("testSearch");
+			});
+
+			it("returns empty string for unknown field name", () => {
+				document.body.innerHTML =
+					'<table id="myGrid" class="bx-grid" data-bind-params="{nonexistentField}"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>';
+
+				const result = gridComp.resolveBindParams("myGrid");
+				// getBindElementValue returns null for unknown fields, so the key is excluded
+				expect(result.nonexistentField).toBeUndefined();
+			});
+		});
+
+		describe("loadData with bind params", () => {
+			it("appends bind params to URL when data-bind-params is present", async () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-source="/api/data" data-page-size="5"
+						data-bind-params="{cfgridpage},{cfgridpagesize}">
+						<thead><tr><th>X</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				vi.spyOn(globalThis, "fetch").mockResolvedValue(
+					new Response(JSON.stringify({ data: [] }), {
+						status: 200,
+						headers: { "content-type": "application/json" },
+					}),
+				);
+
+				await gridComp.loadData("myGrid");
+				const url = globalThis.fetch.mock.calls[0][0];
+				expect(url).toContain("page=1");
+				expect(url).toContain("pagesize=5");
+				vi.restoreAllMocks();
+			});
+
+			it("includes grid-internal bind params in URL when data-bind-params present", async () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-source="/api/data"
+						data-bind-params="{cfgridsortcolumn},{cfgridsortdirection}"
+						data-current-sort="name" data-current-order="desc">
+						<thead><tr><th>X</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				vi.spyOn(globalThis, "fetch").mockResolvedValue(
+					new Response(JSON.stringify({ data: [] }), {
+						status: 200,
+						headers: { "content-type": "application/json" },
+					}),
+				);
+
+				await gridComp.loadData("myGrid");
+				const url = globalThis.fetch.mock.calls[0][0];
+				expect(url).toContain("gridsortcolumn=name");
+				expect(url).toContain("gridsortdirection=DESC");
+				vi.restoreAllMocks();
+			});
+		});
+
+		describe("_autoSelectAfterRender", () => {
+			it("auto-selects first row when selectOnLoad is true", () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-name="myGrid" data-select-on-load="true">
+						<thead><tr><th data-column="id">ID</th><th data-column="name">Name</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				gridComp.renderGrid("myGrid", {
+					data: [{ id: "1", name: "Alice" }],
+				});
+
+				const grid = document.getElementById("myGrid");
+				expect(grid.dataset.selectedRowData).toBeDefined();
+				const rowData = JSON.parse(grid.dataset.selectedRowData);
+				expect(rowData.id).toBe("1");
+				expect(rowData.name).toBe("Alice");
+			});
+
+			it("does not auto-select when selectOnLoad is false", () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-name="myGrid" data-select-on-load="false">
+						<thead><tr><th data-column="id">ID</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				gridComp.renderGrid("myGrid", { data: [{ id: "1" }] });
+
+				const grid = document.getElementById("myGrid");
+				expect(grid.dataset.selectedRowData || "").toBe("");
+			});
+
+			it("dispatches gridSelectionChange event after auto-select", () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-name="myGrid" data-select-on-load="true">
+						<thead><tr><th data-column="id">ID</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				const grid = document.getElementById("myGrid");
+				const handler = vi.fn();
+				grid.addEventListener("gridSelectionChange", handler);
+
+				gridComp.renderGrid("myGrid", { data: [{ id: "99" }] });
+
+				expect(handler).toHaveBeenCalled();
+				const detail = handler.mock.calls[0][0].detail;
+				expect(detail.gridName).toBe("myGrid");
+				expect(detail.selectedRowData.id).toBe("99");
+			});
+		});
 	});
 
 	describe("BXUICompat.Grid facade", () => {

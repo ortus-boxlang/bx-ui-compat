@@ -1,249 +1,274 @@
-/* 
+/*
  * BoxLang UI Compatibility Module - Layout Components CSS
  * Basic styles for Layout and LayoutArea components
  */
 
 /* Base Layout Styles */
 .bx-layout {
-    position: relative;
-    box-sizing: border-box;
+	position: relative;
+	box-sizing: border-box;
+}
+
+/* Shared font baseline for all BoxLang UI components */
+.bx-layout,
+.bx-grid,
+.bx-div,
+.bx-window,
+.bx-pod,
+.bx-tooltip,
+.bx-progressbar {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
 }
 
 .bx-layout-fill-height {
-    height: 100%;
+	height: 100%;
 }
 
 .bx-layout-fit-window {
-    height: 100vh;
-    width: 100vw;
+	height: 100vh;
+	width: 100vw;
 }
 
 .bx-layout-align-left {
-    text-align: left;
+	text-align: left;
 }
 
 .bx-layout-align-center {
-    text-align: center;
+	text-align: center;
 }
 
 .bx-layout-align-right {
-    text-align: right;
+	text-align: right;
 }
 
 .bx-layout-align-justify {
-    text-align: justify;
+	text-align: justify;
 }
 
 /* Tab Layout Styles */
 .bx-layout-tab {
-    display: flex;
-    flex-direction: column;
+	display: flex;
+	flex-direction: column;
 }
 
 .bx-tab-headers {
-    display: flex;
-    border-bottom: 1px solid #ddd;
-    background-color: #f9f9f9;
+	display: flex;
+	border-bottom: 1px solid #ddd;
+	background-color: #f9f9f9;
 }
 
 .bx-tab-header {
-    padding: 10px 15px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.3s ease;
+	padding: 10px 15px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	transition: all 0.3s ease;
 }
 
 .bx-tab-header:hover {
-    background-color: #e9e9e9;
+	background-color: #e9e9e9;
 }
 
 .bx-tab-header.active {
-    background-color: #fff;
-    border-bottom-color: #007cba;
-    font-weight: bold;
+	background-color: #fff;
+	border-bottom-color: #007cba;
+	font-weight: bold;
 }
 
 .bx-tab-content {
-    flex: 1;
-    position: relative;
+	flex: 1;
+	position: relative;
 }
 
 .bx-tab-panel {
-    display: none;
-    padding: 20px;
+	display: none;
+	padding: 20px;
 }
 
 .bx-tab-panel.active {
-    display: block;
+	display: block;
 }
 
 /* Accordion Layout Styles */
 .bx-layout-accordion {
-    border: 1px solid #ddd;
+	border: 1px solid #ddd;
 }
 
 .bx-accordion-panel {
-    border-bottom: 1px solid #ddd;
+	border-bottom: 1px solid #ddd;
 }
 
 .bx-accordion-panel:last-child {
-    border-bottom: none;
+	border-bottom: none;
 }
 
 .bx-accordion-header {
-    padding: 15px;
-    background-color: #f5f5f5;
-    cursor: pointer;
-    font-weight: bold;
-    position: relative;
+	padding: 15px;
+	background-color: #f5f5f5;
+	cursor: pointer;
+	font-weight: bold;
+	position: relative;
 }
 
 .bx-accordion-header:hover {
-    background-color: #e9e9e9;
+	background-color: #e9e9e9;
 }
 
 .bx-accordion-header::after {
-    content: "▼";
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    transition: transform 0.3s ease;
+	content: "▼";
+	position: absolute;
+	right: 15px;
+	top: 50%;
+	transform: translateY(-50%);
+	transition: transform 0.3s ease;
 }
 
 .bx-accordion-panel.collapsed .bx-accordion-header::after {
-    transform: translateY(-50%) rotate(-90deg);
+	transform: translateY(-50%) rotate(-90deg);
 }
 
 .bx-accordion-content {
-    padding: 15px;
-    transition: max-height 0.3s ease;
-    overflow: hidden;
+	padding: 15px;
+	transition: max-height 0.3s ease;
+	overflow: hidden;
 }
 
 .bx-accordion-panel.collapsed .bx-accordion-content {
-    display: none;
+	display: none;
 }
 
 /* Border Layout Styles */
 .bx-layout-border {
-    display: grid;
-    grid-template-areas: 
-        "top top top"
-        "left center right"
-        "bottom bottom bottom";
-    grid-template-columns: auto 1fr auto;
-    grid-template-rows: auto 1fr auto;
-    height: 100%;
+	display: grid;
+	grid-template-areas:
+		"top top top"
+		"left center right"
+		"bottom bottom bottom";
+	grid-template-columns: auto 1fr auto;
+	grid-template-rows: auto 1fr auto;
+	height: 100%;
 }
 
 .bx-border-top {
-    grid-area: top;
-    border-bottom: 1px solid #ddd;
+	grid-area: top;
+	border-bottom: 1px solid #ddd;
 }
 
 .bx-border-bottom {
-    grid-area: bottom;
-    border-top: 1px solid #ddd;
+	grid-area: bottom;
+	border-top: 1px solid #ddd;
 }
 
 .bx-border-left {
-    grid-area: left;
-    border-right: 1px solid #ddd;
+	grid-area: left;
+	border-right: 1px solid #ddd;
 }
 
 .bx-border-right {
-    grid-area: right;
-    border-left: 1px solid #ddd;
+	grid-area: right;
+	border-left: 1px solid #ddd;
 }
 
 .bx-border-center {
-    grid-area: center;
-    overflow: auto;
+	grid-area: center;
+	overflow: auto;
 }
 
 .bx-border-area {
-    padding: 10px;
-    overflow: auto;
+	padding: 10px;
+	overflow: auto;
 }
 
 .bx-border-splitter {
-    position: relative;
+	position: relative;
 }
 
 /* Box Layout Styles */
 .bx-layout-hbox {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
 }
 
 .bx-layout-vbox {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
 }
 
 .bx-box-item {
-    flex: 1;
-    padding: 10px;
+	flex: 1;
+	padding: 10px;
 }
 
 /* Source Loading Styles */
 .bx-source-loading {
-    padding: 20px;
-    text-align: center;
-    color: #666;
-    font-style: italic;
+	padding: 20px;
+	text-align: center;
+	color: #666;
+	font-style: italic;
 }
 
 .bx-source-loading::before {
-    content: "⟳ ";
-    animation: spin 1s linear infinite;
+	content: "⟳ ";
+	animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .bx-source-error {
-    padding: 15px;
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-    border-radius: 4px;
-    margin: 10px 0;
+	padding: 15px;
+	background-color: #f8d7da;
+	color: #721c24;
+	border: 1px solid #f5c6cb;
+	border-radius: 4px;
+	margin: 10px 0;
 }
 
 .bx-source-error p {
-    margin: 5px 0;
+	margin: 5px 0;
 }
 
 .bx-source-loaded {
-    /* Styles applied after successful AJAX load */
+	/* Styles applied after successful AJAX load */
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .bx-layout-border {
-        grid-template-areas: 
-            "top"
-            "left"
-            "center"
-            "right"
-            "bottom";
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr auto auto;
-    }
-    
-    .bx-layout-hbox {
-        flex-direction: column;
-    }
-    
-    .bx-tab-headers {
-        flex-wrap: wrap;
-    }
+	.bx-layout-border {
+		grid-template-areas:
+			"top"
+			"left"
+			"center"
+			"right"
+			"bottom";
+		grid-template-columns: 1fr;
+		grid-template-rows: auto auto 1fr auto auto;
+	}
+
+	.bx-layout-hbox {
+		flex-direction: column;
+	}
+
+	.bx-tab-headers {
+		flex-wrap: wrap;
+	}
 }

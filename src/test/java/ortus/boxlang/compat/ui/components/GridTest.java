@@ -203,7 +203,7 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "addEventListener('click'" );
 		assertThat( output ).contains( "sortColumn" );
 		assertThat( output ).contains( "goToPage" );
-		assertThat( output ).contains( "toggleSelectAll" );
+		assertThat( output ).contains( "gridSelectionChange" );
 		assertThat( output ).contains( "gridLoaded();" );
 		assertThat( output ).contains( "cellEdited(column, row, value);" );
 		assertThat( output ).contains( "columnSorted(column, newSort);" );
@@ -263,10 +263,9 @@ public class GridTest extends BaseIntegrationTest {
 		);
 
 		String output = variables.getAsString( Key.of( "result" ) );
-		assertThat( output ).contains( "bx-grid-select-header" );
-		// In "all" select mode, should have select-all checkbox in header
-		assertThat( output ).contains( "<input type=\"checkbox\" class=\"bx-grid-select-all\"" );
-		assertThat( output ).contains( "type=\"checkbox\"" );
+		// In "all" select mode, a hidden selection input is rendered
+		assertThat( output ).contains( "type=\"hidden\"" );
+		assertThat( output ).contains( "multiSelectGrid_selection" );
 	}
 
 	@DisplayName( "It generates selection columns for row select mode (radio)" )
@@ -283,11 +282,8 @@ public class GridTest extends BaseIntegrationTest {
 		);
 
 		String output = variables.getAsString( Key.of( "result" ) );
-		assertThat( output ).contains( "bx-grid-select-header" );
-		// In "row" select mode, should use radio buttons for single-row selection
-		assertThat( output ).contains( "type=\"radio\"" );
-		// Should not contain select-all checkbox in the header
-		assertThat( output ).doesNotContain( "<input type=\"checkbox\" class=\"bx-grid-select-all\"" );
+		assertThat( output ).doesNotContain( "bx-grid-select-header" );
+		assertThat( output ).doesNotContain( "bx-grid-select-cell" );
 	}
 
 	@DisplayName( "It does not generate selection columns for browse/single/column/edit modes" )
@@ -496,7 +492,7 @@ public class GridTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "data-select-mode=\"all\"" );
-		assertThat( output ).contains( "type=\"checkbox\"" );
+		assertThat( output ).contains( "input type=\"hidden\"" );
 	}
 
 	@DisplayName( "It validates format attribute" )
@@ -628,5 +624,231 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "orders" );
 		assertThat( output ).contains( "products" );
 		assertThat( output ).contains( "5200" );
+	}
+
+	@DisplayName( "It resolves cfc: bind prefix to a relative URL with .cfc extension and adds data-bind-params" )
+	@Test
+	public void testGridBindCfcResolution() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:component.PartnerCRUD.getPartnerRecords({cfgridpage},{cfgridpagesize})" {
+		        bx:gridcolumn name="PrtLglNm" header="Partner Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-source=\"component/PartnerCRUD.cfc?method=getPartnerRecords&returnFormat=json\"" );
+		assertThat( output ).contains( "data-bind-params=\"{cfgridpage},{cfgridpagesize}\"" );
+		assertThat( output ).contains( "data-bind=" );
+		assertThat( output ).contains( "cfc" );
+		assertThat( output ).contains( "component.PartnerCRUD.getPartnerRecords" );
+		assertThat( output ).contains( "cfgridpage" );
+		assertThat( output ).contains( "cfgridpagesize" );
+	}
+
+	@DisplayName( "It resolves url: bind prefix to a direct URL" )
+	@Test
+	public void testGridBindUrlPrefix() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="url:api/data.bxm" {
+		        bx:gridcolumn name="PrtLglNm" header="Partner Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-source=\"api/data.bxm\"" );
+	}
+
+	@DisplayName( "It resolves cfc: bind with slash-separated path" )
+	@Test
+	public void testGridBindWithSlashPath() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:component/PartnerCRUD.getPartnerRecords({cfgridpage})" {
+		        bx:gridcolumn name="PrtLglNm" header="Partner Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-source=\"component/PartnerCRUD.cfc?method=getPartnerRecords&returnFormat=json\"" );
+	}
+
+	@DisplayName( "It preserves the raw bind expression in data-bind attribute" )
+	@Test
+	public void testGridBindRawPreserved() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:services.DataService.getData({cfgridpage})" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-bind=" );
+		assertThat( output ).contains( "services.DataService.getData" );
+		assertThat( output ).contains( "cfgridpage" );
+	}
+
+	@DisplayName( "It emits data-bind-on-load attribute matching bindOnLoad value" )
+	@Test
+	public void testGridBindOnLoadDataAttribute() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:svc.Data.getData()" bindOnLoad="false" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-bind-on-load=\"false\"" );
+	}
+
+	@DisplayName( "It does not emit data-bind-params when bind expression has no parameters" )
+	@Test
+	public void testGridBindNoParams() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:services.DataService.getData" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).doesNotContain( "data-bind-params" );
+	}
+
+	@DisplayName( "It does not render a selection column in header or rows" )
+	@Test
+	public void testGridNoSelectionColumn() {
+		runtime.executeSource(
+		    """
+		    qData = queryNew("id,name", "integer,varchar", [
+		        {"id": 1, "name": "Test"}
+		    ]);
+		    bx:grid name="testGrid" format="html" query="qData" selectmode="row" {
+		        bx:gridcolumn name="id" header="ID";
+		        bx:gridcolumn name="name" header="Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).doesNotContain( "bx-grid-select-header" );
+		assertThat( output ).doesNotContain( "bx-grid-select-cell" );
+	}
+
+	@DisplayName( "It renders a hidden input for selection state after the table" )
+	@Test
+	public void testGridHiddenSelectionInput() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="selectGrid" format="html" selectmode="row" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "input type=\"hidden\"" );
+		assertThat( output ).contains( "selectGrid_selection" );
+	}
+
+	@DisplayName( "It defaults selectOnLoad to true" )
+	@Test
+	public void testGridSelectOnLoadDefaultTrue() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="testGrid" format="html" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "data-select-on-load=\"true\"" );
+	}
+
+	@DisplayName( "It includes auto-select first row logic in the behavior script" )
+	@Test
+	public void testGridAutoSelectFirstRowScript() {
+		runtime.executeSource(
+		    """
+		    qData = queryNew("id,name", "integer,varchar", [
+		        {"id": 1, "name": "Test"}
+		    ]);
+		    bx:grid name="testGrid" format="html" query="qData" selectOnLoad="true" {
+		        bx:gridcolumn name="id" header="ID";
+		        bx:gridcolumn name="name" header="Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "selectOnLoad" );
+		assertThat( output ).contains( "setTimeout" );
+		assertThat( output ).contains( "bx-grid-row" );
+		assertThat( output ).contains( "handleSelection" );
+	}
+
+	@DisplayName( "It includes gridSelectionChange event dispatch in behavior script" )
+	@Test
+	public void testGridSelectionChangeEvent() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="testGrid" format="html" selectmode="row" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "gridSelectionChange" );
+		assertThat( output ).contains( "selectedRowData" );
+	}
+
+	@DisplayName( "It does not include the old toggleSelectAll function" )
+	@Test
+	public void testGridRemovedToggleSelectAll() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="testGrid" format="html" selectmode="all" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).doesNotContain( "toggleSelectAll" );
 	}
 }
