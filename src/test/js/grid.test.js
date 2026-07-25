@@ -159,6 +159,92 @@ describe("grid.js", () => {
 			});
 		});
 
+		describe("renderGrid pagination integration", () => {
+			// Regression: renderGrid() previously gated updatePagination() on
+			// `pagination &&`, which is null for AJAX-bound grids whose
+			// server-rendered skeleton has no pagination child. Pagination
+			// therefore never appeared after the first AJAX load.
+			it("renders pagination after AJAX load when no pagination element exists yet", async () => {
+				document.body.innerHTML = `
+					<div id="myGrid" class="bx-grid" data-source="/api/data" data-page-size="10">
+						<table class="bx-grid-table">
+							<thead><tr><th data-column="id">ID</th></tr></thead>
+							<tbody></tbody>
+						</table>
+					</div>`;
+
+				const jsonData = {
+					data: [{ id: "1" }, { id: "2" }],
+					page: 1,
+					pageSize: 10,
+					totalRows: 42,
+				};
+				vi.spyOn(globalThis, "fetch").mockResolvedValue(
+					new Response(JSON.stringify(jsonData), {
+						status: 200,
+						headers: { "content-type": "application/json" },
+					}),
+				);
+
+				await gridComp.loadData("myGrid");
+
+				const pagination = document.querySelector(
+					"#myGrid .bx-grid-pagination",
+				);
+				expect(pagination).not.toBeNull();
+				expect(pagination.innerHTML).toContain("Page 1 of 5");
+				expect(pagination.innerHTML).toContain("Showing 1-10 of 42");
+				vi.restoreAllMocks();
+			});
+		});
+
+		describe("loadData URL parameter dedup", () => {
+			// Regression: bind expressions like
+			//   bind="cfc:foo.bar({cfgridpage},{cfgridpagesize})"
+			// caused URLSearchParams to receive `page` and `pageSize` twice,
+			// once from the seed {page,pageSize} and once via
+			// resolveBindParams() mapping {cfgridpage}→page and
+			// {cfgridpagesize}→pagesize. Because URLSearchParams.append() is
+			// additive by spec, the wire request ended up with `page=1&page=1
+			// &pageSize=10&pagesize=10`, which CFML parses as invalid
+			// delimited lists.
+			it("does not duplicate page or pagesize when bind defines {cfgridpage} and {cfgridpagesize}", async () => {
+				document.body.innerHTML = `
+					<div id="myGrid" class="bx-grid"
+					     data-source="/api/data"
+					     data-bind-params="{cfgridpage},{cfgridpagesize}"
+					     data-page-size="10">
+						<table class="bx-grid-table">
+							<thead><tr><th data-column="id">ID</th></tr></thead>
+							<tbody></tbody>
+						</table>
+					</div>`;
+
+				let capturedUrl = "";
+				vi.spyOn(globalThis, "fetch").mockImplementation((url) => {
+					capturedUrl = String(url);
+					return Promise.resolve(
+						new Response(JSON.stringify({ data: [] }), {
+							status: 200,
+							headers: { "content-type": "application/json" },
+						}),
+					);
+				});
+
+				await gridComp.loadData("myGrid", 2, 10);
+
+				// Each key must appear exactly once in the query string.
+				const query = capturedUrl.split("?")[1] || "";
+				const occurrences = (key) =>
+					(query.match(new RegExp("(^|&)" + key + "=", "g")) || [])
+						.length;
+				expect(occurrences("page")).toBe(1);
+				expect(occurrences("pagesize")).toBe(1);
+				expect(occurrences("pageSize")).toBe(0);
+				vi.restoreAllMocks();
+			});
+		});
+
 		describe("sortBy", () => {
 			it("sets sort metadata on grid", async () => {
 				document.body.innerHTML = `
@@ -473,6 +559,73 @@ describe("grid.js", () => {
 			expect(facade.sortBy).toBeTypeOf("function");
 			expect(facade.search).toBeTypeOf("function");
 			expect(facade.goToPage).toBeTypeOf("function");
+		});
+	});
+
+	describe("_normalizeQueryData string PAGE/PAGESIZE coercion", () => {
+		// Regression: BoxLang's JSON serializer emits PAGE and PAGESIZE as
+		// strings ("1", "7") rather than numbers. Without parseInt(), the
+		// updatePagination closure computes currentPage + 1 = "1" + 1 = "11"
+		// (string concatenation), so the Next button requests page=11 instead
+		// of page=2.
+		it("parses string PAGE and PAGESIZE as integers", () => {
+			const gridComp = window.BoxLangAjax.components.grid;
+			const normalized = gridComp._normalizeQueryData({
+				QUERY: { COLUMNS: ["id"], DATA: [["1"]] },
+				TOTALROWCOUNT: 50,
+				PAGE: "1", // string — as BoxLang serializes it
+				PAGESIZE: "7", // string — as BoxLang serializes it
+			});
+			expect(typeof normalized.page).toBe("number");
+			expect(typeof normalized.pageSize).toBe("number");
+			expect(normalized.page).toBe(1);
+			expect(normalized.pageSize).toBe(7);
+			// Arithmetic must work: currentPage + 1 = 2, not "11"
+			expect(normalized.page + 1).toBe(2);
+		});
+
+		it("Next click sends page=2 when server returns PAGE as string '1'", async () => {
+			document.body.innerHTML = `
+				<div id="strGrid" class="bx-grid" data-source="/api/data"
+				     data-bind-params="{cfgridpage},{cfgridpagesize}"
+				     data-page-size="7">
+					<table class="bx-grid-table">
+						<thead><tr><th data-column="id">ID</th></tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>`;
+
+			let capturedUrl = "";
+			vi.spyOn(globalThis, "fetch").mockImplementation((url) => {
+				capturedUrl = String(url);
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({
+							QUERY: { COLUMNS: ["id"], DATA: [["1"]] },
+							TOTALROWCOUNT: 50,
+							PAGE: "1", // string — BoxLang serialization
+							PAGESIZE: "7", // string — BoxLang serialization
+						}),
+						{
+							status: 200,
+							headers: { "content-type": "application/json" },
+						},
+					),
+				);
+			});
+
+			const gridComp = window.BoxLangAjax.components.grid;
+			await gridComp.loadData("strGrid");
+
+			const nextBtn = document.querySelector("#strGrid .bx-page-next");
+			expect(nextBtn).not.toBeNull();
+			nextBtn.click();
+			await new Promise((r) => setTimeout(r, 100));
+
+			const query = capturedUrl.split("?")[1] || "";
+			const pageParam = new URLSearchParams(query).get("page");
+			expect(pageParam).toBe("2"); // must be "2", not "11"
+			vi.restoreAllMocks();
 		});
 	});
 });

@@ -289,10 +289,23 @@ class{
 
 		for( var i = 1; i <= areas.len(); i++ ){
 			var area = areas[i];
-			var collapsedClass = area.initcollapsed ? " collapsed" : "";
+			var isCollapsible = ( area.collapsible ?: true ) == true;
+			var collapsedClass = "";
+			var lockedClass = "";
+			if( isCollapsible ){
+				collapsedClass = area.initcollapsed ? " collapsed" : "";
+			} else {
+				lockedClass = " bx-accordion-panel-locked";
+			}
 
-			context.writeToBuffer( "<div class=""bx-accordion-panel#collapsedClass#"">" );
-			context.writeToBuffer( "<div class=""bx-accordion-header"">#encodeForHTML( area.title ?: 'Panel #i#' )#</div>" );
+			var headerAttrs = isCollapsible ? ' data-area-id="#encodeForHTMLAttribute( area.id ?: '' )#" data-layout-id="#encodeForHTMLAttribute( executionState.layoutId ?: '' )#"' : "";
+			context.writeToBuffer( "<div class=""bx-accordion-panel#collapsedClass##lockedClass#"">" );
+			context.writeToBuffer( "<div class=""bx-accordion-header""#headerAttrs#>" );
+			// Titles are treated as HTML (parity with CFML cflayoutarea). The
+			// caller is responsible for sanitising untrusted input. We still
+			// encode the data-* attributes above for safe attribute values.
+			context.writeToBuffer( area.title ?: 'Panel #i#' );
+			context.writeToBuffer( "</div>" );
 			context.writeToBuffer( "<div class=""bx-accordion-content"">" );
 			context.writeToBuffer( area.content );
 			context.writeToBuffer( "</div></div>" );
@@ -301,15 +314,45 @@ class{
 
 	/**
 	 * Render border areas
+	 *
+	 * Areas with a title are wrapped in a collapsible container (accordion-style
+	 * header + content). Areas without a title are emitted as plain positioned
+	 * divs (backward-compatible). When a title is present but collapsible is
+	 * false, the title bar is rendered statically (no toggle, no chevron).
 	 */
 	private function renderBorderAreas( required context, required executionState ){
 		var areas = executionState.areas ?: [];
 
 		for( var area in areas ){
 			var position = area.position ?: "center";
-			context.writeToBuffer( "<div class=""bx-border-#position#"">" );
-			context.writeToBuffer( area.content );
+			var titleText = !isNull( area.title ) ? area.title : "";
+			var hasTitle = len( titleText );
+			var isCollapsible = ( area.collapsible ?: true ) == true;
+
+			if( !hasTitle ){
+				// Backward-compatible: plain positioned region
+				context.writeToBuffer( "<div class=""bx-border-#position#"">" );
+				context.writeToBuffer( area.content );
+				context.writeToBuffer( "</div>" );
+				continue;
+			}
+
+			// Title-bearing area: promote the title outside the body so it spans
+			// the full width of the layout region (no side padding against the
+			// layout edges). The body is the only inner padded container.
+			var collapsedClass = ( isCollapsible && area.initcollapsed ) ? " collapsed" : "";
+			var titleClass = isCollapsible ? "bx-accordion-header bx-border-title" : "bx-border-title bx-border-title-static";
+			var headerAttrs = isCollapsible ? " data-area-id=""#encodeForHTMLAttribute( area.id ?: '' )#"" data-layout-id=""#encodeForHTMLAttribute( executionState.layoutId ?: '' )#"" data-area-position=""#encodeForHTMLAttribute( position )#""" : "";
+
+			context.writeToBuffer( "<div class=""bx-border-area bx-border-#position##collapsedClass#"">" );
+			context.writeToBuffer( "<div class=""#titleClass#""#headerAttrs#>" );
+			// Titles are treated as HTML (parity with CFML cflayoutarea).
+			// The caller is responsible for sanitising untrusted input.
+			context.writeToBuffer( titleText );
 			context.writeToBuffer( "</div>" );
+			context.writeToBuffer( "<div class=""bx-accordion-content bx-border-body"">" );
+			context.writeToBuffer( area.content );
+			context.writeToBuffer( "</div></div>" );
 		}
 	}
 
@@ -339,22 +382,36 @@ class{
 			return !isNull( area.attributes.source ) && len( area.attributes.source );
 		} );
 
+		// Determine if this layout has any collapsible panels that need wiring
+		var hasCollapsiblePanels = areas.some( function( area ) {
+			// Only collapsible panels with a title need click-toggle behaviour
+			if( isNull( area.title ) || !len( area.title ) ){
+				return false;
+			}
+			return ( area.collapsible ?: true ) == true;
+		} );
+
 		// Generate script for interactive layouts or AJAX sources
-		if( [ "tab", "accordion" ].containsNoCase( layoutType ) || hasSourceAreas ){
+		if( [ "tab", "accordion", "border" ].containsNoCase( layoutType ) || hasSourceAreas ){
 			var script = "<script type=""text/javascript"">";
 			script &= "(function(){";
 			script &= "var layout = document.getElementById('#layoutId#');";
+			script &= "if( layout ){";
 
 			if( layoutType == "tab" ){
 				script &= generateTabScript( layoutId );
 			} else if( layoutType == "accordion" ){
 				script &= generateAccordionScript( layoutId );
+			} else if( layoutType == "border" && hasCollapsiblePanels ){
+				script &= generateBorderScript( layoutId );
 			}
 
 			// Add AJAX functionality for source attributes
 			if( hasSourceAreas ){
 				script &= generateSourceScript( areas );
 			}
+
+			script &= "}";
 
 			script &= "})();";
 			script &= "</script>";
@@ -389,14 +446,31 @@ class{
 
 	/**
 	 * Generate accordion functionality script
+	 *
+	 * Skips click-toggle on locked (collapsible="false") panels.
 	 */
 	private function generateAccordionScript( required layoutId ){
 		return "
 			layout.addEventListener('click', function(e) {
-				if (e.target.classList.contains('bx-accordion-header')) {
-					var panel = e.target.parentNode;
-					panel.classList.toggle('collapsed');
-				}
+				var header = e.target.closest('.bx-accordion-header');
+				if( !header || !layout.contains( header ) ){ return; }
+				if( header.parentNode.classList.contains('bx-accordion-panel-locked') ){ return; }
+				header.parentNode.classList.toggle('collapsed');
+			});
+		";
+	}
+
+	/**
+	 * Generate border layout click-toggle script for collapsible titled areas.
+	 */
+	private function generateBorderScript( required layoutId ){
+		return "
+			layout.addEventListener('click', function(e) {
+				var header = e.target.closest('.bx-border-title');
+				if( !header || !layout.contains( header ) ){ return; }
+				// Only collapsible headers carry data-area-id
+				if( !header.hasAttribute('data-area-id') ){ return; }
+				header.parentNode.classList.toggle('collapsed');
 			});
 		";
 	}

@@ -130,26 +130,34 @@
 				return Promise.reject(new Error("No data source found"));
 			}
 
-			// Internal pagination params sent on the wire. These are kept in their
-			// original camelCase form (page, pageSize) for non-bind grids. For bind-
-			// driven grids, the CF-style cfgridpage/cfgridpagesize tokens append the
-			// lowercase page/pagesize variants via resolveBindParams(). The sort
-			// info is carried exclusively by the cfgridsortcolumn/cfgridsortdirection
-			// bind tokens — we do NOT send a separate sortColumn/sortOrder pair
-			// because those names are not part of the CFC method signature and would
-			// be redundant noise.
-			const params = new URLSearchParams({
-				page: page,
-				pageSize: pageSize,
-			});
+			// Internal pagination params sent on the wire. For grids WITHOUT a bind
+			// expression we use the camelCase (page, pageSize) names that
+			// match the local JS endpoint contract. For bind-driven grids
+			// (data-bind-params present) the {cfgridpage}/{cfgridpagesize}
+			// tokens resolve to the CFML wire names (page, pagesize), and
+			// those are the canonical names — we must NOT also seed the
+			// camelCase variants, or we'd end up with BOTH `page`/`pagesize`
+			// AND `pageSize`/`pagesize` on the wire. The latter pair in
+			// particular is what CFML parses as an invalid delimited list.
+			//
+			// NB: `URLSearchParams.set` replaces any existing value of the
+			// same key, so the bind-token merge below will replace (not
+			// duplicate) `page` if a `{cfgridpage}` token is present.
+			const params = new URLSearchParams();
+			const hasBind = !!grid.dataset.bindParams;
+			if (!hasBind) {
+				params.set("page", page);
+				params.set("pageSize", pageSize);
+			}
 
 			// Merge resolved bind variable values into the query string. When a bind
 			// expression defines {cfgridpage}/{cfgridpagesize}/{cfgridsortcolumn}/
 			// {cfgridsortdirection} tokens, this is where the CF-named parameters
-			// (page, pagesize, gridsortcolumn, gridsortdirection) are appended.
+			// (page, pagesize, gridsortcolumn, gridsortdirection) are written.
+			// `set` replaces any existing value instead of duplicating it.
 			const bindParams = this.resolveBindParams(gridId);
 			for (const [key, value] of Object.entries(bindParams)) {
-				params.append(key, value);
+				params.set(key, value);
 			}
 
 			const fullUrl =
@@ -252,8 +260,16 @@
 					return obj;
 				}),
 				totalRows: totalRows,
-				page: data.PAGE || data.page || 1,
-				pageSize: data.PAGESIZE || data.pagesize || rows.length,
+				// PAGE and PAGESIZE are serialized as strings by BoxLang's JSON
+				// serializer. Parse them as integers so arithmetic in
+				// updatePagination (currentPage + 1) does addition, not string
+				// concatenation ("1" + 1 = "11").
+				page: parseInt(data.PAGE || data.page || 1, 10) || 1,
+				pageSize:
+					parseInt(
+						data.PAGESIZE || data.pagesize || rows.length,
+						10,
+					) || 25,
 			};
 		},
 
@@ -310,8 +326,6 @@
 				if (!tbody) return;
 			}
 
-			var pagination = grid.querySelector(".bx-grid-pagination");
-
 			// Clear existing rows
 			tbody.innerHTML = "";
 
@@ -343,8 +357,13 @@
 				tbody.appendChild(tr);
 			});
 
-			// Update pagination if present
-			if (pagination && data.totalRows !== undefined) {
+			// Update pagination. updatePagination() creates the pagination element on
+			// demand (with class "bx-grid-pagination") if one does not already
+			// exist, so we don't need to gate the call on its presence — for an
+			// AJAX-bound grid the server-rendered skeleton has no pagination
+			// child at all, and gating on `pagination &&` previously prevented
+			// it from ever appearing.
+			if (data.totalRows !== undefined) {
 				this.updatePagination(gridId, data);
 			}
 
@@ -577,16 +596,18 @@
 			const currentPage = parseInt(grid.dataset.currentPage) || 1;
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
 
-			return this.loadData(gridId, currentPage, pageSize).then(function () {
-				// Update header after successful load
-				const sortedHeader = grid.querySelector(
-					`th[data-sort="${column}"]`,
-				);
-				if (sortedHeader) {
-					sortedHeader.classList.remove("bx-sorting");
-					sortedHeader.classList.add("bx-sorted-" + sortOrder);
-				}
-			});
+			return this.loadData(gridId, currentPage, pageSize).then(
+				function () {
+					// Update header after successful load
+					const sortedHeader = grid.querySelector(
+						`th[data-sort="${column}"]`,
+					);
+					if (sortedHeader) {
+						sortedHeader.classList.remove("bx-sorting");
+						sortedHeader.classList.add("bx-sorted-" + sortOrder);
+					}
+				},
+			);
 		},
 
 		/**

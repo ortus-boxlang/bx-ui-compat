@@ -125,6 +125,144 @@ public class LayoutTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "Main content" );
 		assertThat( output ).contains( "Right sidebar" );
 		assertThat( output ).contains( "Footer content" );
+		// Top area has a title → must be wrapped in a collapsible container
+		assertThat( output ).contains( "bx-border-title" );
+		assertThat( output ).contains( "bx-border-body" );
+		assertThat( output ).contains( "Header" );
+		assertThat( output ).contains( "data-area-id" );
+		// Untitled areas should remain plain positioned divs (backward compat).
+		// Verify that each untitled position is wrapped only in the position class.
+		assertThat( output ).contains( "<div class=\"bx-border-left\">Left sidebar" );
+		assertThat( output ).contains( "<div class=\"bx-border-right\">Right sidebar" );
+		assertThat( output ).contains( "<div class=\"bx-border-bottom\">Footer content" );
+		assertThat( output ).contains( "<div class=\"bx-border-center\">Main content" );
+	}
+
+	@DisplayName( "It honors initcollapsed on collapsible border areas" )
+	@Test
+	public void testBorderLayoutCollapsibleInitcollapsed() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="border" height="500px" {
+		        bx:layoutarea position="top" title="Search Panel" collapsible="true" initcollapsed="true" {
+		            writeOutput("Search form content");
+		        }
+		        bx:layoutarea position="center" {
+		            writeOutput("Main content");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// The top area wrapper should carry the collapsed class
+		assertThat( output ).contains( "bx-border-area bx-border-top collapsed" );
+		assertThat( output ).contains( "bx-accordion-header bx-border-title" );
+		assertThat( output ).contains( "Search Panel" );
+		assertThat( output ).contains( "data-area-id" );
+		// Script must be wired for click-toggle (queries .bx-border-title)
+		assertThat( output ).contains( "bx-border-title" );
+	}
+
+	@DisplayName( "It renders border titles as HTML (preserves entities and tags)" )
+	@Test
+	public void testBorderLayoutTitleHtml() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="border" height="500px" {
+		        bx:layoutarea position="top" title="Search&nbsp;Panel <em>v2</em>" {
+		            writeOutput("Body");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// Title should be inserted verbatim, not entity-encoded
+		assertThat( output ).contains( "Search&nbsp;Panel <em>v2</em>" );
+		assertThat( output ).doesNotContain( "Search&amp;nbsp;" );
+	}
+
+	@DisplayName( "It renders non-collapsible border title bars statically" )
+	@Test
+	public void testBorderLayoutNonCollapsible() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="border" height="500px" {
+		        bx:layoutarea position="top" title="Fixed Header" collapsible="false" {
+		            writeOutput("Fixed header content");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "bx-border-title bx-border-title-static" );
+		assertThat( output ).contains( "Fixed Header" );
+		assertThat( output ).contains( "Fixed header content" );
+		// Static title bar has no data-area-id (not wired for click-toggle)
+		assertThat( output ).doesNotContain( "data-area-id" );
+	}
+
+	@DisplayName( "Border collapsible title bar carries data-area-id for click-toggle" )
+	@Test
+	public void testBorderLayoutCollapsibleHasDataAreaId() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="border" height="500px" id="borderDataId" {
+		        bx:layoutarea position="top" title="Toggle Me" id="topArea" collapsible="true" {
+		            writeOutput("Body content");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// The title element must carry the data-area-id attribute so the click
+		// handler can find it. (Regression: earlier the variable was computed
+		// but never interpolated into the markup.)
+		assertThat( output ).contains( "data-area-id=\"topArea\"" );
+		assertThat( output ).contains( "data-layout-id=\"borderDataId\"" );
+		assertThat( output ).contains( "data-area-position=\"top\"" );
+		// The click handler should query .bx-border-title (not the old name)
+		assertThat( output ).contains( ".bx-border-title" );
+	}
+
+	@DisplayName( "It honors collapsible=false on accordion areas" )
+	@Test
+	public void testAccordionLayoutCollapsibleFalse() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="accordion" id="accLocked" {
+		        bx:layoutarea title="Collapsible" {
+		            writeOutput("Collapsible content");
+		        }
+		        bx:layoutarea title="Locked Panel" collapsible="false" {
+		            writeOutput("Locked content");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "bx-accordion-panel-locked" );
+		assertThat( output ).contains( "Locked Panel" );
+		assertThat( output ).contains( "Locked content" );
+		// Collapsible panel retains data-area-id; locked one does not
+		assertThat( output ).contains( "data-area-id" );
+		// Accordion script must skip click-toggle on locked panels
+		assertThat( output ).contains( "bx-accordion-panel-locked" );
+		assertThat( output ).contains( "bx-accordion-header" );
 	}
 
 	@DisplayName( "It can create an hbox layout" )

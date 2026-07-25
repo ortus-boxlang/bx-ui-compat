@@ -165,6 +165,105 @@
 
 			return Promise.resolve();
 		},
+
+		/**
+		 * Find a titled area wrapper by area id within a layout.
+		 *
+		 * Looks for either a `.bx-accordion-panel` (accordion layout) or a
+		 * `.bx-border-area` (border layout) whose first child header carries
+		 * the matching `data-area-id` attribute. Returns null when not found
+		 * or when the area is locked (`collapsible="false"`).
+		 */
+		_findAreaElement: function (layout, areaId) {
+			if (!layout || !areaId) {
+				return null;
+			}
+			const headers = layout.querySelectorAll(
+				".bx-accordion-header, .bx-border-title",
+			);
+			for (let i = 0; i < headers.length; i++) {
+				if (headers[i].getAttribute("data-area-id") === areaId) {
+					return headers[i].parentNode;
+				}
+			}
+			return null;
+		},
+
+		/**
+		 * Collapse a titled area by id. No-op on locked (`collapsible="false"`)
+		 * areas.
+		 *
+		 * @param {string} layoutId Layout container id
+		 * @param {string} areaId   Area id (the value of `id` on `<bx:layoutarea>`)
+		 * @returns {boolean} true if the area was collapsed, false otherwise
+		 */
+		collapseArea: function (layoutId, areaId) {
+			const layout = document.getElementById(layoutId);
+			const area = BoxLangAjax.components.layout._findAreaElement(
+				layout,
+				areaId,
+			);
+			if (!area) {
+				console.error(
+					"Layout area not found: " + layoutId + " / " + areaId,
+				);
+				return false;
+			}
+			if (area.classList.contains("bx-accordion-panel-locked")) {
+				return false;
+			}
+			area.classList.add("collapsed");
+			return true;
+		},
+
+		/**
+		 * Expand a titled area by id. No-op on locked (`collapsible="false"`)
+		 * areas.
+		 *
+		 * @param {string} layoutId Layout container id
+		 * @param {string} areaId   Area id (the value of `id` on `<bx:layoutarea>`)
+		 * @returns {boolean} true if the area was expanded, false otherwise
+		 */
+		expandArea: function (layoutId, areaId) {
+			const layout = document.getElementById(layoutId);
+			const area = BoxLangAjax.components.layout._findAreaElement(
+				layout,
+				areaId,
+			);
+			if (!area) {
+				console.error(
+					"Layout area not found: " + layoutId + " / " + areaId,
+				);
+				return false;
+			}
+			if (area.classList.contains("bx-accordion-panel-locked")) {
+				return false;
+			}
+			area.classList.remove("collapsed");
+			return true;
+		},
+
+		/**
+		 * Toggle a titled area's collapsed state by id. No-op on locked panels.
+		 */
+		toggleArea: function (layoutId, areaId) {
+			const layout = document.getElementById(layoutId);
+			const area = BoxLangAjax.components.layout._findAreaElement(
+				layout,
+				areaId,
+			);
+			if (!area) {
+				console.error(
+					"Layout area not found: " + layoutId + " / " + areaId,
+				);
+				return false;
+			}
+			if (area.classList.contains("bx-accordion-panel-locked")) {
+				return false;
+			}
+			area.classList.toggle("collapsed");
+			return true;
+		},
 	};
 
 	// Enhanced layout event handling for AJAX
@@ -308,6 +407,15 @@
 				panelIndex,
 				url,
 			);
+		},
+		collapseArea: function (layoutId, areaId) {
+			return BoxLangAjax.components.layout.collapseArea(layoutId, areaId);
+		},
+		expandArea: function (layoutId, areaId) {
+			return BoxLangAjax.components.layout.expandArea(layoutId, areaId);
+		},
+		toggleArea: function (layoutId, areaId) {
+			return BoxLangAjax.components.layout.toggleArea(layoutId, areaId);
 		},
 	};
 })();

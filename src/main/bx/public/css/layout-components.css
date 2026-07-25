@@ -185,12 +185,110 @@
 }
 
 .bx-border-area {
-	padding: 10px;
+	padding-bottom: 10px;
 	overflow: auto;
 }
 
 .bx-border-splitter {
 	position: relative;
+}
+
+/* Border Layout: Collapsible Titled Areas
+ *
+ * Areas with a title get a wrapper (.bx-border-area) that is a direct child
+ * of the layout region (.bx-border-top/left/right/bottom). The wrapper
+ * contains a full-width title bar (.bx-border-title) and a padded body
+ * (.bx-border-body). The title bar spans the entire region width with
+ * no horizontal padding against the layout edges; the body has its own
+ * internal padding so content sits comfortably without touching the
+ * layout edges. When collapsed, the body is hidden via display:none.
+ */
+
+/* The outer border layout gets a single visible frame that matches
+ * CFML cflayout type="border" defaults. */
+.bx-layout-border {
+	border: 1px solid #99bce8;
+	background-color: #fff;
+}
+
+.bx-border-area {
+	box-sizing: border-box;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Full-width title bar — spans the layout region, no horizontal padding */
+.bx-border-title {
+	padding: 8px 12px;
+	background-color: #cedff5;
+	background-image: linear-gradient(to bottom, #e8f0fa, #cedff5);
+	font-weight: bold;
+	border-bottom: 1px solid #99bce8;
+	cursor: pointer;
+	position: relative;
+	user-select: none;
+	font-size: 13px;
+	color: #333;
+}
+
+.bx-border-title:hover {
+	background-color: #b8d2ee;
+	background-image: linear-gradient(to bottom, #d8e6f7, #b8d2ee);
+}
+
+.bx-border-title::after {
+	content: "▼";
+	position: absolute;
+	right: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	transition: transform 0.2s ease;
+	font-size: 10px;
+	color: #666;
+}
+
+.bx-border-area.collapsed .bx-border-title::after {
+	transform: translateY(-50%) rotate(-90deg);
+}
+
+/* Body — internal padding for content, hidden when collapsed */
+.bx-border-body {
+	padding: 12px;
+	overflow: auto;
+	background-color: #fff;
+}
+
+.bx-border-area.collapsed > .bx-border-body {
+	display: none;
+}
+
+/* Static (non-collapsible) border title bar */
+.bx-border-title-static {
+	cursor: default;
+	background-color: #fafafa;
+	background-image: none;
+}
+
+.bx-border-title-static::after {
+	content: none;
+}
+
+.bx-border-title-static:hover {
+	background-color: #fafafa;
+	background-image: none;
+}
+
+/* Accordion panel locked state (collapsible="false") */
+.bx-accordion-panel-locked > .bx-accordion-header {
+	cursor: default;
+}
+
+.bx-accordion-panel-locked > .bx-accordion-header::after {
+	content: none;
+}
+
+.bx-accordion-panel-locked > .bx-accordion-header:hover {
+	background-color: #f5f5f5;
 }
 
 /* Box Layout Styles */
