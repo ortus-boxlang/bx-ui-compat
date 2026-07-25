@@ -367,6 +367,48 @@ describe("grid.js", () => {
 				expect(url).toContain("gridsortdirection=DESC");
 				vi.restoreAllMocks();
 			});
+
+			it("does NOT send legacy sortColumn/sortOrder URL params (CFC method signature has no such params)", async () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-source="/api/data"
+						data-bind-params="{cfgridsortcolumn},{cfgridsortdirection}"
+						data-current-sort="LocId" data-current-order="desc">
+						<thead><tr><th>X</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				vi.spyOn(globalThis, "fetch").mockResolvedValue(
+					new Response(JSON.stringify({ data: [] }), {
+						status: 200,
+						headers: { "content-type": "application/json" },
+					}),
+				);
+
+				await gridComp.loadData("myGrid");
+				const url = globalThis.fetch.mock.calls[0][0];
+				expect(url).not.toContain("sortColumn=");
+				expect(url).not.toContain("sortOrder=");
+				vi.restoreAllMocks();
+			});
+
+			it("does NOT send legacy sortColumn/sortOrder URL params even without bind", async () => {
+				document.body.innerHTML = `
+					<table id="myGrid" class="bx-grid" data-source="/api/data">
+						<thead><tr><th>X</th></tr></thead>
+						<tbody></tbody>
+					</table>`;
+				vi.spyOn(globalThis, "fetch").mockResolvedValue(
+					new Response(JSON.stringify({ data: [] }), {
+						status: 200,
+						headers: { "content-type": "application/json" },
+					}),
+				);
+
+				await gridComp.loadData("myGrid", 1, 25, "name", "asc");
+				const url = globalThis.fetch.mock.calls[0][0];
+				expect(url).not.toContain("sortColumn=");
+				expect(url).not.toContain("sortOrder=");
+				vi.restoreAllMocks();
+			});
 		});
 
 		describe("_autoSelectAfterRender", () => {

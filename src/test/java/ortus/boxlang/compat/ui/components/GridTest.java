@@ -851,4 +851,87 @@ public class GridTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).doesNotContain( "toggleSelectAll" );
 	}
+
+	@DisplayName( "It flags hasAjaxBind=true and dispatches AJAX on sort when bind is a cfc: expression" )
+	@Test
+	public void testGridSortAjaxDispatchOnCfcBind() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="cfc:component.PartnerCRUD.getPartnerRecords({cfgridpage},{cfgridpagesize},{cfgridsortcolumn},{cfgridsortdirection})" {
+		        bx:gridcolumn name="PrtLglNm" header="Partner Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// The behavior script should set hasAjaxBind to true so the inline
+		// sortColumn() handler routes through BXUICompat.Grid.sortBy() instead
+		// of the local DOM sortRows().
+		assertThat( output ).contains( "var hasAjaxBind = true;" );
+		assertThat( output ).contains( "BXUICompat.Grid.sortBy(grid.id, column)" );
+		// And it should keep the dataset in sync so resolveBindParams() resolves
+		// the new gridsortcolumn/gridsortdirection values on the next AJAX call.
+		assertThat( output ).contains( "grid.dataset.currentSort = column" );
+		assertThat( output ).contains( "grid.dataset.currentOrder = newSort" );
+	}
+
+	@DisplayName( "It flags hasAjaxBind=true and dispatches AJAX on sort when bind is a url: expression" )
+	@Test
+	public void testGridSortAjaxDispatchOnUrlBind() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="gridTables" bind="url:api/data.bxm?{cfgridsortcolumn},{cfgridsortdirection}" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "var hasAjaxBind = true;" );
+		assertThat( output ).contains( "BXUICompat.Grid.sortBy(grid.id, column)" );
+	}
+
+	@DisplayName( "It flags hasAjaxBind=false when no bind attribute is supplied (no AJAX on sort)" )
+	@Test
+	public void testGridSortAjaxDispatchDisabledWithoutBind() {
+		runtime.executeSource(
+		    """
+		    qData = queryNew("id,name", "integer,varchar", [
+		        {"id": 1, "name": "Test"}
+		    ]);
+		    bx:grid name="testGrid" query="qData" {
+		        bx:gridcolumn name="id" header="ID";
+		        bx:gridcolumn name="name" header="Name";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "var hasAjaxBind = false;" );
+		// Local DOM sort should still be available as the default path
+		assertThat( output ).contains( "sortRows(" );
+	}
+
+	@DisplayName( "It flags hasAjaxBind=false when bind is an unsupported prefix (e.g. javascript:)" )
+	@Test
+	public void testGridSortAjaxDispatchIgnoredForUnknownPrefix() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="testGrid" bind="javascript:returnFoo()" {
+		        bx:gridcolumn name="col" header="Column";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "var hasAjaxBind = false;" );
+	}
 }

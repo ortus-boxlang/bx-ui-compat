@@ -702,8 +702,16 @@ class{
 	 */
 	private function generateGridBehaviorScript( required attributes, required executionState ){
 		var selectMode = lcase( executionState.selectMode );
+
+		// Determine if this grid uses an AJAX bind (cfc:/url: prefix). When true, sort clicks
+		// must redispatch the AJAX call with the updated gridsortcolumn/gridsortdirection
+		// values rather than performing a local DOM sort.
+		var bindExpression = attributes.bind ?: "";
+		var hasAjaxBind = isSimpleValue( bindExpression ) && len( bindExpression ) && ( bindExpression.startsWith( "cfc:" ) || bindExpression.startsWith( "url:" ) );
+
 		return "
 			var selectMode = '#selectMode#';
+			var hasAjaxBind = #hasAjaxBind#;
 
 			// Track last clicked row for shift+click range selection
 			var _lastClickedRowIndex = -1;
@@ -892,6 +900,19 @@ class{
 
 				// Add new sort class
 				header.classList.add('bx-grid-sorted', 'bx-grid-sort-' + newSort);
+
+				// Keep the dataset in sync so resolveBindParams() picks up the latest
+				// sort column/direction when the AJAX call re-evaluates bind tokens
+				grid.dataset.currentSort = column;
+				grid.dataset.currentOrder = newSort;
+
+				// When the grid is bound to an AJAX data source (cfc:/url: prefix),
+				// redispatch via the AJAX layer so the server receives the new
+				// gridsortcolumn/gridsortdirection parameters. Otherwise fall back
+				// to a local DOM sort.
+				if (hasAjaxBind && window.BXUICompat && window.BXUICompat.Grid && window.BXUICompat.Grid.sortBy) {
+					window.BXUICompat.Grid.sortBy(grid.id, column);
+				}
 
 				// Fire sort event
 				#len( attributes.onSort ) ? attributes.onSort & '(column, newSort);' : 'sortRows( column, newSort );'#

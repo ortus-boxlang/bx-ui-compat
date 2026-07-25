@@ -107,13 +107,17 @@
 		/**
 		 * Load grid data with pagination
 		 */
-		loadData: function (
-			gridId,
-			page = 1,
-			pageSize = 25,
-			sortColumn = "",
-			sortOrder = "asc",
-		) {
+		/**
+		 * Load grid data with pagination.
+		 *
+		 * The page/pageSize/sortColumn/sortOrder arguments are kept on the
+		 * signature for backwards compatibility but sortColumn/sortOrder are no
+		 * longer sent on the wire — the sort info comes exclusively from the
+		 * {cfgridsortcolumn}/{cfgridsortdirection} bind tokens (which resolve
+		 * against grid.dataset.currentSort/currentOrder), so the CFC method
+		 * signature stays clean.
+		 */
+		loadData: function (gridId, page = 1, pageSize = 25) {
 			const grid = document.getElementById(gridId);
 			if (!grid) {
 				console.error("Grid not found: " + gridId);
@@ -126,14 +130,23 @@
 				return Promise.reject(new Error("No data source found"));
 			}
 
+			// Internal pagination params sent on the wire. These are kept in their
+			// original camelCase form (page, pageSize) for non-bind grids. For bind-
+			// driven grids, the CF-style cfgridpage/cfgridpagesize tokens append the
+			// lowercase page/pagesize variants via resolveBindParams(). The sort
+			// info is carried exclusively by the cfgridsortcolumn/cfgridsortdirection
+			// bind tokens — we do NOT send a separate sortColumn/sortOrder pair
+			// because those names are not part of the CFC method signature and would
+			// be redundant noise.
 			const params = new URLSearchParams({
 				page: page,
 				pageSize: pageSize,
-				sortColumn: sortColumn,
-				sortOrder: sortOrder,
 			});
 
-			// Merge resolved bind variable values into the query string
+			// Merge resolved bind variable values into the query string. When a bind
+			// expression defines {cfgridpage}/{cfgridpagesize}/{cfgridsortcolumn}/
+			// {cfgridsortdirection} tokens, this is where the CF-named parameters
+			// (page, pagesize, gridsortcolumn, gridsortdirection) are appended.
 			const bindParams = this.resolveBindParams(gridId);
 			for (const [key, value] of Object.entries(bindParams)) {
 				params.append(key, value);
@@ -522,17 +535,12 @@
 			const grid = document.getElementById(gridId);
 			if (!grid) return;
 
-			const currentSort = grid.dataset.currentSort || "";
-			const currentOrder = grid.dataset.currentOrder || "asc";
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
 
-			return this.loadData(
-				gridId,
-				page,
-				pageSize,
-				currentSort,
-				currentOrder,
-			);
+			// Ensure the dataset is current-page-aware (resolveBindParams reads it)
+			grid.dataset.currentPage = page;
+
+			return this.loadData(gridId, page, pageSize);
 		},
 
 		/**
@@ -569,13 +577,7 @@
 			const currentPage = parseInt(grid.dataset.currentPage) || 1;
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
 
-			return this.loadData(
-				gridId,
-				currentPage,
-				pageSize,
-				column,
-				sortOrder,
-			).then(function () {
+			return this.loadData(gridId, currentPage, pageSize).then(function () {
 				// Update header after successful load
 				const sortedHeader = grid.querySelector(
 					`th[data-sort="${column}"]`,
@@ -598,16 +600,8 @@
 
 			// Reset to first page when searching
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
-			const currentSort = grid.dataset.currentSort || "";
-			const currentOrder = grid.dataset.currentOrder || "asc";
 
-			return this.loadData(
-				gridId,
-				1,
-				pageSize,
-				currentSort,
-				currentOrder,
-			);
+			return this.loadData(gridId, 1, pageSize);
 		},
 
 		/**
@@ -619,16 +613,8 @@
 
 			const currentPage = parseInt(grid.dataset.currentPage) || 1;
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
-			const currentSort = grid.dataset.currentSort || "";
-			const currentOrder = grid.dataset.currentOrder || "asc";
 
-			return this.loadData(
-				gridId,
-				currentPage,
-				pageSize,
-				currentSort,
-				currentOrder,
-			);
+			return this.loadData(gridId, currentPage, pageSize);
 		},
 	};
 
@@ -696,14 +682,8 @@
 	// -------------------------------------------------------------------
 	window.BXUICompat = window.BXUICompat || {};
 	window.BXUICompat.Grid = {
-		loadData: function (gridId, page, pageSize, sort, order) {
-			return BoxLangAjax.components.grid.loadData(
-				gridId,
-				page,
-				pageSize,
-				sort,
-				order,
-			);
+		loadData: function (gridId, page, pageSize) {
+			return BoxLangAjax.components.grid.loadData(gridId, page, pageSize);
 		},
 		refresh: function (gridId) {
 			return BoxLangAjax.components.grid.refresh(gridId);
