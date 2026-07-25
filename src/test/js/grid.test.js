@@ -32,10 +32,12 @@ describe("grid.js", () => {
 
 			it("loads and renders JSON data", async () => {
 				document.body.innerHTML = `
-					<table id="myGrid" class="bx-grid" data-source="/api/data">
-						<thead><tr><th data-column="id">ID</th><th data-column="name">Name</th></tr></thead>
-						<tbody></tbody>
-					</table>`;
+					<div id="myGrid" class="bx-grid" data-source="/api/data">
+						<table class="bx-grid-table">
+							<thead><tr><th data-column="id">ID</th><th data-column="name">Name</th></tr></thead>
+							<tbody></tbody>
+						</table>
+					</div>`;
 
 				const jsonData = {
 					data: [
@@ -101,7 +103,9 @@ describe("grid.js", () => {
 		describe("renderGrid", () => {
 			it("renders empty message when no data", () => {
 				document.body.innerHTML = `
-					<table id="myGrid"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>`;
+					<div id="myGrid" class="bx-grid">
+						<table class="bx-grid-table"><thead><tr><th>X</th></tr></thead><tbody></tbody></table>
+					</div>`;
 				gridComp.renderGrid("myGrid", { data: [] });
 				expect(document.querySelector(".bx-grid-empty")).not.toBeNull();
 			});
