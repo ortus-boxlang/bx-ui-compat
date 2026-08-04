@@ -18,6 +18,23 @@
 		_controllers: new Map(),
 
 		/**
+		 * Find a grid element by ID or data-name attribute.
+		 * BoxLang renders <bx:grid> with a UUID id when no explicit id is
+		 * specified, and the grid's CFML "name" becomes data-name. External
+		 * JS (like ColdFusion.Grid.refresh('gridTables')) calls us by name,
+		 * so we fall back from getElementById to [data-name] lookup.
+		 *
+		 * @param {string} gridId - The grid ID or name
+		 * @returns {Element|null}
+		 */
+		_findGrid: function (gridId) {
+			if (!gridId) return null;
+			var el = document.getElementById(gridId);
+			if (el) return el;
+			return document.querySelector('[data-name="' + gridId + '"]');
+		},
+
+		/**
 		 * Resolve bind variable tokens from data-bind-params to live DOM values.
 		 *
 		 * Reads the grid's data-bind-params attribute (comma-separated token list
@@ -37,7 +54,7 @@
 		 * @returns {Object} Resolved key/value pairs to append as query params
 		 */
 		resolveBindParams: function (gridId) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return {};
 
 			const bindParamsStr = grid.dataset.bindParams;
@@ -118,11 +135,15 @@
 		 * signature stays clean.
 		 */
 		loadData: function (gridId, page = 1, pageSize = 25) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) {
 				console.error("Grid not found: " + gridId);
 				return Promise.reject(new Error("Grid not found: " + gridId));
 			}
+
+			// Use the grid's actual DOM id for the controller map key, so that
+			// lookups by name and by id both cancel the same in-flight request.
+			const controllerKey = grid.id || gridId;
 
 			const url = grid.dataset.source;
 			if (!url) {
@@ -167,10 +188,10 @@
 			this.showLoadingSkeleton(gridId);
 
 			// Cancel any previous in-flight request for this grid
-			var prevController = this._controllers.get(gridId);
+			var prevController = this._controllers.get(controllerKey);
 			if (prevController) prevController.abort();
 			var controller = new AbortController();
-			this._controllers.set(gridId, controller);
+			this._controllers.set(controllerKey, controller);
 
 			return BoxLangAjax.utils
 				.fetchContent(fullUrl, { signal: controller.signal })
@@ -315,7 +336,7 @@
 		 * Render grid with data
 		 */
 		renderGrid: function (gridId, data) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			var tbody = grid.querySelector("tbody");
@@ -341,6 +362,18 @@
 				tr.classList.add("bx-grid-row");
 				tr.dataset.row = index + 1;
 
+				// Build a case-insensitive lookup map for this row once,
+				// so column name matching works regardless of case (the
+				// data-column attribute from the server preserves CFML
+				// column name case, but AJAX JSON responses may use a
+				// different case — e.g. query serialization uppercases).
+				var rowLookup = {};
+				for (var rk in row) {
+					if (row.hasOwnProperty(rk)) {
+						rowLookup[rk.toLowerCase()] = row[rk];
+					}
+				}
+
 				// Get column definitions from header
 				const headers = grid.querySelectorAll("thead th");
 				headers.forEach(function (header) {
@@ -350,7 +383,11 @@
 					const td = document.createElement("td");
 					td.classList.add("bx-grid-cell");
 					td.dataset.column = columnName;
-					td.textContent = row[columnName] || "";
+					// Exact match first, then case-insensitive fallback
+					td.textContent =
+						row[columnName] !== undefined
+							? row[columnName]
+							: (rowLookup[columnName.toLowerCase()] || "");
 					tr.appendChild(td);
 				});
 
@@ -383,7 +420,7 @@
 		 * Called internally by renderGrid().
 		 */
 		_autoSelectAfterRender: function (gridId) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 			if (grid.dataset.selectOnLoad !== "true") return;
 
@@ -429,7 +466,7 @@
 		 * Show loading skeleton
 		 */
 		showLoadingSkeleton: function (gridId) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			const tbody = grid.querySelector("tbody");
@@ -455,7 +492,7 @@
 		 * Show error state
 		 */
 		showError: function (gridId, error) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			const tbody = grid.querySelector("tbody");
@@ -488,7 +525,7 @@
 		 * Update pagination controls
 		 */
 		updatePagination: function (gridId, data) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			let pagination = grid.querySelector(".bx-grid-pagination");
@@ -551,7 +588,7 @@
 		 * Go to specific page
 		 */
 		goToPage: function (gridId, page) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			const pageSize = parseInt(grid.dataset.pageSize) || 25;
@@ -566,7 +603,7 @@
 		 * Sort by column
 		 */
 		sortBy: function (gridId, column) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			let sortOrder = "asc";
@@ -614,7 +651,7 @@
 		 * Search/filter grid
 		 */
 		search: function (gridId, query) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			grid.dataset.searchQuery = query;
@@ -629,7 +666,7 @@
 		 * Refresh grid with current settings
 		 */
 		refresh: function (gridId) {
-			const grid = document.getElementById(gridId);
+			const grid = this._findGrid(gridId);
 			if (!grid) return;
 
 			const currentPage = parseInt(grid.dataset.currentPage) || 1;
