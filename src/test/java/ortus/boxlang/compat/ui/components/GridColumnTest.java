@@ -251,7 +251,7 @@ public class GridColumnTest extends BaseIntegrationTest {
 		runtime.executeSource(
 		    """
 		    bx:grid name="visibilityGrid" {
-		        bx:gridcolumn name="visible" display="true";
+		        bx:gridcolumn name="visible" type="html" display="true";
 		        bx:gridcolumn name="hidden" display="false";
 		    }
 		    result = getBoxContext().getBuffer().toString()
