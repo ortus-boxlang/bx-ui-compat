@@ -76,7 +76,7 @@
 	border-bottom: 2px solid transparent;
 	transition: all 0.3s ease;
 }
-.bx-tab-header button {
+button.bx-tab-header {
 	color: #333333;
 	background: none;
 }
