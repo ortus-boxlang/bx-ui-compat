@@ -262,7 +262,7 @@ public class GridColumnTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "data-column=\"visible\"" );
 		// Hidden column might still appear in structure but not be displayed
-		assertThat( output ).contains( "data-column=\"hidden\"" );
+		assertThat( output ).doesNotContain( "data-column=\"hidden\"" );
 	}
 
 	@DisplayName( "It can configure sortable columns" )

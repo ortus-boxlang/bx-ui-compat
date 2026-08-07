@@ -441,6 +441,11 @@ class{
 			}
 		}
 
+		// Hide columns that are marked as display=false
+		if( structKeyExists( executionState, "columns" ) ) {
+			executionState.columns = executionState.columns.filter( ( column ) => ( column.display ?: true ) );
+		}
+
 		// Generate grid table structure
 		generateGridStructure( context, attributes, executionState );
 
