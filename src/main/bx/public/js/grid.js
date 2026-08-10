@@ -377,6 +377,9 @@
 				// Get column definitions from header
 				const headers = grid.querySelectorAll("thead th");
 				headers.forEach(function (header) {
+					if (typeof header.dataset.type === "undefined") {
+						header.dataset.type = "text";
+					}
 					const columnName =
 						header.dataset.column ||
 						header.textContent.toLowerCase().replace(/\s+/g, "_");
@@ -384,10 +387,14 @@
 					td.classList.add("bx-grid-cell");
 					td.dataset.column = columnName;
 					// Exact match first, then case-insensitive fallback
-					td.textContent =
+					const contentAssignment =
+						header.dataset.type.toLowerCase() == "html"
+							? "innerHTML"
+							: "textContent";
+					td[contentAssignment] =
 						row[columnName] !== undefined
 							? row[columnName]
-							: (rowLookup[columnName.toLowerCase()] || "");
+							: rowLookup[columnName.toLowerCase()] || "";
 					tr.appendChild(td);
 				});
 

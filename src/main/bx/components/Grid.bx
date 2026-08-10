@@ -508,6 +508,7 @@ class{
 
 			headContent &= "<th class=""bx-grid-column-header#sortClass#""";
 			headContent &= " data-column=""#encodeForHTMLAttribute( column.name )#""";
+			headContent &= " data-type=""#encodeForHTMLAttribute( column.type ?: "text" )#""";
 
 			// Build column header styles
 			var headerStyles = [];
