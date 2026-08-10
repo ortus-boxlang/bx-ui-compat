@@ -613,8 +613,10 @@ class{
 						rowsContent &= " contenteditable=""true""";
 					}
 
+					param column.type = "text";
+
 					rowsContent &= ">";
-					rowsContent &= encodeForHTML( cellValue );
+					rowsContent &= column.type == "html" ? cellValue : encodeForHTML( cellValue );
 					rowsContent &= "</td>";
 				}
 

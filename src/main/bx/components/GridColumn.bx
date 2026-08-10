@@ -221,7 +221,7 @@ class{
 		if( columnData.values.len() > 0 ){
 			var valueIndex = columnData.values.findNoCase( value );
 			if( valueIndex > 0 && columnData.valuesDisplay.len() >= valueIndex ){
-				cellHTML = encodeForHTML( columnData.valuesDisplay[ valueIndex ] );
+				cellHTML = columnData.type == "html" ? columnData.valuesDisplay[ valueIndex ] : encodeForHTML( columnData.valuesDisplay[ valueIndex ] );
 			}
 		}
 
