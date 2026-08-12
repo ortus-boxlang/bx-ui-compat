@@ -1,0 +1,216 @@
+/**
+ * BoxLang Component Which Creates a Pop-up Window
+ *
+ * This component implements the functionality of the ColdFusion cfwindow tag,
+ * creating an in-page pop-up window backed by a native <dialog> element.
+ * The component generates the required HTML/JS bootstrap and delegates all
+ * interactive behaviour to the cfwindow.js ES module.
+ */
+@BoxComponent( "Window" )
+@AllowsBody( true )
+@RequiresBody( false )
+class{
+
+	/**
+	 * The Window UI component
+	 *
+	 * <pre>
+	 * <bx:window name="myWindow" title="Hello" width="400" height="300" initShow="true">
+	 *     <p>Body content here</p>
+	 * </bx:window>
+	 * </pre>
+	 *
+	 * @attribute.name - string, required - Unique name of the window on the page
+	 * @attribute.title - string, optional - Text displayed in the window title bar (supports HTML)
+	 * @attribute.source - string, optional - URL whose response becomes the window body (overrides body content)
+	 * @attribute.bodyStyle - string, optional - CSS style specification for the window body
+	 * @attribute.headerStyle - string, optional - CSS style specification for the window header
+	 * @attribute.width - number, optional - Width of the window in pixels (default: 500)
+	 * @attribute.height - number, optional - Height of the window in pixels (default: 300)
+	 * @attribute.minWidth - number, optional - Minimum width users can resize the window to (default: 0)
+	 * @attribute.minHeight - number, optional - Minimum height users can resize the window to (default: 0)
+	 * @attribute.x - number, optional - Horizontal pixel coordinate of the window upper-left corner
+	 * @attribute.y - number, optional - Vertical pixel coordinate of the window upper-left corner
+	 * @attribute.center - boolean, optional - Center the window over the browser viewport (default: false)
+	 * @attribute.initShow - boolean, optional - Show the window when the page loads (default: false)
+	 * @attribute.modal - boolean, optional - Prevent interaction with the page while window is open (default: false)
+	 * @attribute.closable - boolean, optional - Show a close button on the title bar (default: true)
+	 * @attribute.draggable - boolean, optional - Allow the user to drag the window (default: true)
+	 * @attribute.resizable - boolean, optional - Allow the user to resize the window (default: true)
+	 * @attribute.destroyOnClose - boolean, optional - Remove the window from the DOM when closed (default: false)
+	 * @attribute.refreshOnShow - boolean, optional - Re-fetch the source URL each time the window is shown (default: false)
+	 * @attribute.onBindError - string, optional - JavaScript function name called when a bind expression errors
+	 * @attribute.id - string, optional - HTML id for the root dialog element (auto-generated if omitted)
+	 *
+	 * @param context The context of the execution (IBoxContext)
+	 * @param attributes The attributes of the component that were passed in
+	 * @param body The body of the component that you can pass to `processBody(context, body, [buffer])` for execution and buffer retreival
+	 * @param executionState The execution state of the component. Each component get's one as an isolated state.
+	 *
+	 * @return A BodyResult instance or null for a default result return.
+	 */
+	function invoke( required context, Struct attributes, any body, Struct executionState ){
+
+		// ---- Required attribute validation -----------------------------------------------
+		if( isNull( attributes.name ) || !len( trim( attributes.name ) ) ){
+			throw(
+				type    = "boxlang.compat.ui.MissingAttributeException",
+				message = "The name attribute is required for the Window component"
+			);
+		}
+
+		// ---- Defaults --------------------------------------------------------------------
+		param attributes.title          = "";
+		param attributes.source         = "";
+		param attributes.bodyStyle      = "";
+		param attributes.headerStyle    = "";
+		param attributes.width          = 500;
+		param attributes.height         = 300;
+		param attributes.minWidth       = 0;
+		param attributes.minHeight      = 0;
+		param attributes.x              = "";
+		param attributes.y              = "";
+		param attributes.center         = false;
+		param attributes.initShow       = false;
+		param attributes.modal          = false;
+		param attributes.closable       = true;
+		param attributes.draggable      = true;
+		param attributes.resizable      = true;
+		param attributes.destroyOnClose = false;
+		param attributes.refreshOnShow  = false;
+		param attributes.onBindError    = "";
+
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "window" ) ){
+			bx:ajaximport tags="window";
+		}
+
+		// ---- Auto-generate id if not supplied --------------------------------------------
+		if( isNull( attributes.id ) || !len( trim( attributes.id ) ) ){
+			attributes.id = "window_" & listLast( lcase( createUUID() ), "-" );
+		}
+
+		// ---- Integer validation helpers --------------------------------------------------
+		for( var dimAttr in [ "width", "height" ] ){
+			if( !isNumeric( attributes[ dimAttr ] ) ){
+				throw(
+					type    = "boxlang.compat.ui.InvalidAttributeException",
+					message = "The #dimAttr# attribute must be a numeric pixel value"
+				);
+			}
+		}
+		for( var dimAttr in [ "minWidth", "minHeight" ] ){
+			if( len( attributes[ dimAttr ] ) && !isNumeric( attributes[ dimAttr ] ) ){
+				throw(
+					type    = "boxlang.compat.ui.InvalidAttributeException",
+					message = "The #dimAttr# attribute must be a numeric pixel value"
+				);
+			}
+		}
+
+		// ---- Capture body content --------------------------------------------------------
+		var bodyContent = "";
+		var hasSource   = len( trim( attributes.source ) );
+
+		if( !hasSource ){
+			var buffer    = newBuffer();
+			processBody( context, body, buffer );
+			bodyContent = buffer.toString();
+		}
+
+		// ---- Emit the seed <div> that cfwindow.js will upgrade to a <dialog> -------------
+		// We emit a lightweight placeholder here; the heavy lifting (drag, resize, etc.)
+		// lives entirely in the ES module.
+		var html = "";
+
+		// Hidden seed div – holds the window name and initial body markup before JS runs
+		html &= "<div";
+		html &= " id=""#encodeForHTMLAttribute( attributes.name )#-body""";
+		html &= " class=""bx-cfwindow-seed""";
+		html &= " style=""display:none;""";
+		html &= " data-window-name=""#encodeForHTMLAttribute( attributes.name )#""";
+		html &= ">";
+
+		if( hasSource ){
+			// Source content is loaded by JS at runtime; raw value is safe inside a comment
+			html &= "<!-- bx:window source: #attributes.source# -->";
+		} else {
+			html &= bodyContent;
+		}
+
+		html &= "</div>";
+
+		context.writeToBuffer( html );
+
+		// ---- Emit the bootstrap <script> -------------------------------------------------
+		context.writeToBuffer( generateWindowScript( attributes ) );
+	}
+
+	// ---------------------------------------------------------------------------------
+	// Private helpers
+	// ---------------------------------------------------------------------------------
+
+	/**
+	 * Builds the inline <script> block that calls ColdFusion.Window.create() to
+	 * materialise the window via the cfwindow.js module.
+	 */
+	private function generateWindowScript( required attributes ){
+		// Build the JS config object as a BoxLang string so we can use encodeForJS
+		var cfg = "{ ";
+		cfg &= "divid: '#encodeForJavaScript( attributes.id )#'";
+		cfg &= ", width: #javaCast('int', attributes.width)#";
+		cfg &= ", height: #javaCast('int', attributes.height)#";
+
+		if( attributes.minWidth  > 0 ) cfg &= ", minwidth: #javaCast('int', attributes.minWidth)#";
+		if( attributes.minHeight > 0 ) cfg &= ", minheight: #javaCast('int', attributes.minHeight)#";
+
+		if( len( trim( attributes.headerStyle ) ) ) cfg &= ", headerstyle: '#encodeForJavaScript( attributes.headerStyle )#'";
+		if( len( trim( attributes.bodyStyle   ) ) ) cfg &= ", bodystyle: '#encodeForJavaScript( attributes.bodyStyle )#'";
+
+		cfg &= ", center: #lcase( attributes.center )#";
+		cfg &= ", initshow: #lcase( attributes.initShow )#";
+		cfg &= ", modal: #lcase( attributes.modal )#";
+		cfg &= ", closable: #lcase( attributes.closable )#";
+		cfg &= ", draggable: #lcase( attributes.draggable )#";
+		cfg &= ", resizable: #lcase( attributes.resizable )#";
+		cfg &= ", destroyonclose: #lcase( attributes.destroyOnClose )#";
+		cfg &= ", refreshonshow: #lcase( attributes.refreshOnShow )#";
+		cfg &= ", callfromtag: true";
+
+		if( len( trim( attributes.x ) ) ) cfg &= ", x: #javaCast('int', attributes.x)#";
+		if( len( trim( attributes.y ) ) ) cfg &= ", y: #javaCast('int', attributes.y)#";
+
+		if( len( trim( attributes.onBindError ) ) ){
+			cfg &= ", onBindError: '#encodeForJavaScript( attributes.onBindError )#'";
+		}
+
+		cfg &= " }";
+
+		var sourceArg = len( trim( attributes.source ) ) ? "'#encodeForJavaScript( attributes.source )#'" : "null";
+		var titleArg  = len( trim( attributes.title  ) ) ? "'#encodeForJavaScript( attributes.title  )#'" : "null";
+
+		var script = "<script type=""text/javascript"">";
+		script &= "(function(){";
+
+		// Defer until DOM is ready so the seed div exists
+		script &= "function _bxWindowInit_#encodeForJavaScript( attributes.name )#(){";
+		script &= "if(window.ColdFusion && window.ColdFusion.Window){";
+		script &= "ColdFusion.Window.create(";
+		script &= "'#encodeForJavaScript( attributes.name )#'";
+		script &= ", #titleArg#";
+		script &= ", #sourceArg#";
+		script &= ", #cfg#";
+		script &= ");";
+		script &= "} else { console.warn('[bx:window] ColdFusion.Window not loaded. Include cfwindow.js via bx:ajaximport tags=""window""'); }";
+		script &= "}";
+		script &= "if(document.readyState==='loading'){";
+		script &= "document.addEventListener('DOMContentLoaded',_bxWindowInit_#encodeForJavaScript( attributes.name )#);";
+		script &= "} else { _bxWindowInit_#encodeForJavaScript( attributes.name )#(); }";
+
+		script &= "})();";
+		script &= "</script>";
+
+		return script;
+	}
+}

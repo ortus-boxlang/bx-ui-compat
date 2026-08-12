@@ -1,58 +1,73 @@
 /**
+
  * BoxLang Layout Component AJAX CSS
  * Styles for AJAX functionality in layout components
  */
 
 /* Layout AJAX loading states */
+.bx-layout {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
 .bx-layout .bx-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 50px;
-    background-color: #f5f5f5;
-    border: 1px dashed #ccc;
-    border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 50px;
+	background-color: #f5f5f5;
+	border: 1px dashed #ccc;
+	border-radius: 4px;
 }
 
 /* Layout area AJAX containers */
 .bx-layoutarea[data-source] {
-    position: relative;
+	position: relative;
 }
 
 .bx-layoutarea .bx-source-loading {
-    background-color: rgba(255, 255, 255, 0.8);
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+	background-color: rgba(255, 255, 255, 0.8);
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 /* Tab layout AJAX styles */
 .bx-layout-tab .bx-tab-panel .bx-loading {
-    margin: 20px;
-    padding: 30px;
-    background-color: #fafafa;
+	margin: 20px;
+	padding: 30px;
+	background-color: #fafafa;
 }
 
 .bx-layout-tab .bx-tab-panel .bx-source-error {
-    margin: 20px;
-    border-radius: 4px;
+	margin: 20px;
+	border-radius: 4px;
 }
 
 /* Accordion layout AJAX styles */
 .bx-layout-accordion .bx-accordion-content .bx-loading {
-    margin: 10px;
-    padding: 20px;
+	margin: 10px;
+	padding: 20px;
 }
 
 .bx-layout-accordion .bx-accordion-content .bx-source-error {
-    margin: 10px;
-    border-radius: 4px;
+	margin: 10px;
+	border-radius: 4px;
 }
 
 /* Border layout AJAX styles */
@@ -61,50 +76,50 @@
 .bx-layout-border .bx-border-bottom .bx-loading,
 .bx-layout-border .bx-border-left .bx-loading,
 .bx-layout-border .bx-border-right .bx-loading {
-    margin: 5px;
-    padding: 15px;
+	margin: 5px;
+	padding: 15px;
 }
 
 /* Box layout AJAX styles */
 .bx-layout-hbox .bx-box-item .bx-loading,
 .bx-layout-vbox .bx-box-item .bx-loading {
-    margin: 5px;
-    padding: 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 3px;
+	margin: 5px;
+	padding: 10px;
+	border: 1px solid #e0e0e0;
+	border-radius: 3px;
 }
 
 /* AJAX content transitions */
 .bx-layout .bx-source-loaded {
-    animation: bx-layout-fade-in 0.4s ease-out;
+	animation: bx-layout-fade-in 0.4s ease-out;
 }
 
 @keyframes bx-layout-fade-in {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .bx-layout .bx-loading {
-        padding: 15px;
-        font-size: 0.9em;
-    }
-    
-    .bx-layoutarea .bx-source-loading {
-        font-size: 0.9em;
-    }
+	.bx-layout .bx-loading {
+		padding: 15px;
+		font-size: 0.9em;
+	}
+
+	.bx-layoutarea .bx-source-loading {
+		font-size: 0.9em;
+	}
 }
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
-    .bx-layout .bx-source-loaded {
-        animation: none;
-    }
+	.bx-layout .bx-source-loaded {
+		animation: none;
+	}
 }

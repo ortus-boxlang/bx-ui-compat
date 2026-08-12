@@ -4,215 +4,246 @@
  */
 
 /* Tooltip AJAX content loading */
+.bx-tooltip {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
 .bx-tooltip[data-source] {
-    position: relative;
+	position: relative;
 }
 
 .bx-tooltip .bx-loading {
-    padding: 8px 12px;
-    text-align: center;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    border-radius: 4px;
-    font-size: 0.8em;
-    min-width: 80px;
+	padding: 8px 12px;
+	text-align: center;
+	background-color: rgba(0, 0, 0, 0.8);
+	color: white;
+	border-radius: 4px;
+	font-size: 0.8em;
+	min-width: 80px;
 }
 
 .bx-tooltip .bx-loading::after {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-left: 8px;
-    border: 2px solid transparent;
-    border-top: 2px solid white;
-    border-radius: 50%;
-    animation: bx-tooltip-spin 1s linear infinite;
+	content: "";
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-left: 8px;
+	border: 2px solid transparent;
+	border-top: 2px solid white;
+	border-radius: 50%;
+	animation: bx-tooltip-spin 1s linear infinite;
 }
 
 @keyframes bx-tooltip-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 /* Tooltip error states */
 .bx-tooltip .bx-source-error {
-    padding: 8px 12px;
-    background-color: #d32f2f;
-    color: white;
-    border-radius: 4px;
-    font-size: 0.8em;
-    max-width: 200px;
-    word-wrap: break-word;
+	padding: 8px 12px;
+	background-color: #d32f2f;
+	color: white;
+	border-radius: 4px;
+	font-size: 0.8em;
+	max-width: 200px;
+	word-wrap: break-word;
 }
 
 .bx-tooltip .bx-source-error::before {
-    content: "⚠ ";
-    font-weight: bold;
+	content: "⚠ ";
+	font-weight: bold;
 }
 
 /* Dynamic tooltip sizing for AJAX content */
 .bx-tooltip .bx-ajax-content {
-    max-width: 300px;
-    max-height: 200px;
-    overflow-y: auto;
-    overflow-x: hidden;
+	max-width: 300px;
+	max-height: 200px;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .bx-tooltip .bx-ajax-content img {
-    max-width: 100%;
-    height: auto;
-    display: block;
+	max-width: 100%;
+	height: auto;
+	display: block;
 }
 
 .bx-tooltip .bx-ajax-content table {
-    font-size: 0.9em;
-    border-collapse: collapse;
-    width: 100%;
+	font-size: 0.9em;
+	border-collapse: collapse;
+	width: 100%;
 }
 
 .bx-tooltip .bx-ajax-content table th,
 .bx-tooltip .bx-ajax-content table td {
-    padding: 4px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+	padding: 4px 8px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Tooltip refresh functionality */
 .bx-tooltip[data-refresh] {
-    cursor: help;
+	cursor: help;
 }
 
 .bx-tooltip .bx-refresh-indicator {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 6px;
-    height: 6px;
-    background-color: #4caf50;
-    border-radius: 50%;
-    opacity: 0.6;
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 6px;
+	height: 6px;
+	background-color: #4caf50;
+	border-radius: 50%;
+	opacity: 0.6;
 }
 
 .bx-tooltip.bx-refreshing .bx-refresh-indicator {
-    background-color: #ff9800;
-    animation: bx-tooltip-refresh-pulse 0.8s infinite;
+	background-color: #ff9800;
+	animation: bx-tooltip-refresh-pulse 0.8s infinite;
 }
 
 @keyframes bx-tooltip-refresh-pulse {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.3); }
+	0%,
+	100% {
+		opacity: 0.6;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.3);
+	}
 }
 
 /* Tooltip positioning for AJAX content */
 .bx-tooltip.bx-ajax-loading {
-    z-index: 10001; /* Higher than normal tooltips */
+	z-index: 10001; /* Higher than normal tooltips */
 }
 
 .bx-tooltip.bx-ajax-loaded {
-    animation: bx-tooltip-fade-in 0.2s ease-out;
+	animation: bx-tooltip-fade-in 0.2s ease-out;
 }
 
 @keyframes bx-tooltip-fade-in {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
+	from {
+		opacity: 0;
+		transform: scale(0.9);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 /* Tooltip scrollable content indicators */
 .bx-tooltip .bx-ajax-content::-webkit-scrollbar {
-    width: 4px;
+	width: 4px;
 }
 
 .bx-tooltip .bx-ajax-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 2px;
 }
 
 .bx-tooltip .bx-ajax-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
+	background: rgba(255, 255, 255, 0.3);
+	border-radius: 2px;
 }
 
 .bx-tooltip .bx-ajax-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
+	background: rgba(255, 255, 255, 0.5);
 }
 
 /* Firefox scrollbar styling */
 .bx-tooltip .bx-ajax-content {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
 }
 
 /* Responsive tooltip AJAX */
 @media (max-width: 768px) {
-    .bx-tooltip .bx-ajax-content {
-        max-width: 250px;
-        max-height: 150px;
-        font-size: 0.9em;
-    }
-    
-    .bx-tooltip .bx-loading {
-        font-size: 0.75em;
-        padding: 6px 10px;
-    }
-    
-    .bx-tooltip .bx-source-error {
-        font-size: 0.75em;
-        padding: 6px 10px;
-        max-width: 180px;
-    }
+	.bx-tooltip .bx-ajax-content {
+		max-width: 250px;
+		max-height: 150px;
+		font-size: 0.9em;
+	}
+
+	.bx-tooltip .bx-loading {
+		font-size: 0.75em;
+		padding: 6px 10px;
+	}
+
+	.bx-tooltip .bx-source-error {
+		font-size: 0.75em;
+		padding: 6px 10px;
+		max-width: 180px;
+	}
 }
 
 /* Touch device considerations */
 @media (hover: none) and (pointer: coarse) {
-    .bx-tooltip[data-source] {
-        /* Ensure tooltips are still accessible on touch */
-        cursor: pointer;
-    }
+	.bx-tooltip[data-source] {
+		/* Ensure tooltips are still accessible on touch */
+		cursor: pointer;
+	}
 }
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
-    .bx-tooltip .bx-loading::after {
-        animation: none;
-    }
-    
-    .bx-tooltip.bx-ajax-loaded {
-        animation: none;
-    }
-    
-    .bx-tooltip .bx-refresh-indicator {
-        animation: none;
-    }
+	.bx-tooltip .bx-loading::after {
+		animation: none;
+	}
+
+	.bx-tooltip.bx-ajax-loaded {
+		animation: none;
+	}
+
+	.bx-tooltip .bx-refresh-indicator {
+		animation: none;
+	}
 }
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
-    .bx-tooltip .bx-loading {
-        background-color: #000;
-        border: 2px solid #fff;
-    }
-    
-    .bx-tooltip .bx-source-error {
-        background-color: #000;
-        border: 2px solid #ff0000;
-        color: #fff;
-    }
+	.bx-tooltip .bx-loading {
+		background-color: #000;
+		border: 2px solid #fff;
+	}
+
+	.bx-tooltip .bx-source-error {
+		background-color: #000;
+		border: 2px solid #ff0000;
+		color: #fff;
+	}
 }
 
 /* Focus management for AJAX tooltips */
 .bx-tooltip:focus-within {
-    outline: 2px solid #007bff;
-    outline-offset: 2px;
+	outline: 2px solid #007bff;
+	outline-offset: 2px;
 }
 
 /* Print styles */
 @media print {
-    .bx-tooltip .bx-loading,
-    .bx-tooltip .bx-refresh-indicator {
-        display: none;
-    }
-    
-    .bx-tooltip .bx-source-error::before {
-        content: "[Error] ";
-    }
+	.bx-tooltip .bx-loading,
+	.bx-tooltip .bx-refresh-indicator {
+		display: none;
+	}
+
+	.bx-tooltip .bx-source-error::before {
+		content: "[Error] ";
+	}
 }

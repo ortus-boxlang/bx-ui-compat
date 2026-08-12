@@ -259,4 +259,65 @@ public class AjaxImportTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "layout.css" );
 		assertThat( output ).contains( "layout-components.css" );
 	}
+
+	@DisplayName( "It imports window.js when tags includes window" )
+	@Test
+	public void testWindowTagImportsScript() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="window" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "ajax-core.js" );
+		assertThat( output ).contains( "window.js" );
+	}
+
+	@DisplayName( "It imports window.js in the default all-tags import" )
+	@Test
+	public void testWindowJsIncludedInDefault() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "window.js" );
+	}
+
+	@DisplayName( "It does not import window.js when tags excludes it" )
+	@Test
+	public void testWindowJsNotIncludedWhenExcluded() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="layout,grid" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).doesNotContain( "window.js" );
+	}
+
+	@DisplayName( "It imports window.js with a cfwindow tag alias" )
+	@Test
+	public void testCfWindowTagAlias() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="cfwindow" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "window.js" );
+	}
 }

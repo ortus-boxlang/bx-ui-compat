@@ -55,6 +55,12 @@ class{
 		param attributes.style = "";
 		param attributes.class = "";
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "tooltip" ) ){
+			bx:ajaximport tags="tooltip";
+		}
+
 		// Generate unique ID if not provided
 		if( isNull( attributes.id ) ){
 			attributes.id = "tooltip_" & listLast( lcase( createUUID() ), "-" );
@@ -130,7 +136,7 @@ class{
 		var tooltipId = attributes.id;
 
 		// Generate the tooltip container
-		var tooltipContainer = "<div id=""#tooltipId#_tooltip"" class=""bx-tooltip"" style=""display: none; position: absolute; z-index: 9999; background: ##333; color: white; padding: 8px; border-radius: 4px; font-size: 12px; max-width: 300px; word-wrap: break-word;""></div>";
+		var tooltipContainer = "<div id=""#tooltipId#_tooltip"" class=""bx-tooltip"" style=""display: none; position: absolute; z-index: 9999; background: ##333; color: white; padding: 8px; border-radius: 4px; max-width: 300px; word-wrap: break-word;""></div>";
 
 		context.writeToBuffer( tooltipContainer );
 

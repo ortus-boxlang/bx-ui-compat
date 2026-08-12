@@ -3,280 +3,310 @@
  * Styles for AJAX functionality in pod components
  */
 
+.bx-pod {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
 /* Pod AJAX container styles */
 .bx-pod[data-source] {
-    position: relative;
-    overflow: hidden;
+	position: relative;
+	overflow: hidden;
 }
 
 .bx-pod .bx-loading {
-    text-align: center;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border: 1px dashed #dee2e6;
-    border-radius: 6px;
-    margin: 10px;
-    color: #6c757d;
+	text-align: center;
+	padding: 20px;
+	background-color: #f8f9fa;
+	border: 1px dashed #dee2e6;
+	border-radius: 6px;
+	margin: 10px;
+	color: #6c757d;
 }
 
 .bx-pod .bx-loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    backdrop-filter: blur(2px);
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(255, 255, 255, 0.9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+	backdrop-filter: blur(2px);
 }
 
 /* Pod header AJAX indicators */
 .bx-pod .bx-pod-header {
-    position: relative;
+	position: relative;
 }
 
 .bx-pod .bx-pod-header .bx-refresh-indicator {
-    position: absolute;
-    top: 50%;
-    right: 10px;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    border: 2px solid #007bff;
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: bx-pod-refresh-spin 1s linear infinite;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+	position: absolute;
+	top: 50%;
+	right: 10px;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	border: 2px solid #007bff;
+	border-top: 2px solid transparent;
+	border-radius: 50%;
+	animation: bx-pod-refresh-spin 1s linear infinite;
+	opacity: 0;
+	transition: opacity 0.3s ease;
 }
 
 .bx-pod.bx-refreshing .bx-pod-header .bx-refresh-indicator {
-    opacity: 1;
+	opacity: 1;
 }
 
 @keyframes bx-pod-refresh-spin {
-    from { transform: translateY(-50%) rotate(0deg); }
-    to { transform: translateY(-50%) rotate(360deg); }
+	from {
+		transform: translateY(-50%) rotate(0deg);
+	}
+	to {
+		transform: translateY(-50%) rotate(360deg);
+	}
 }
 
 /* Pod content AJAX transitions */
 .bx-pod .bx-pod-content.bx-source-loaded {
-    animation: bx-pod-content-slide 0.4s ease-out;
+	animation: bx-pod-content-slide 0.4s ease-out;
 }
 
 @keyframes bx-pod-content-slide {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Pod error states */
 .bx-pod .bx-source-error {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 6px;
-    padding: 15px;
-    margin: 10px;
-    color: #721c24;
+	background-color: #f8d7da;
+	border: 1px solid #f5c6cb;
+	border-radius: 6px;
+	padding: 15px;
+	margin: 10px;
+	color: #721c24;
 }
 
 .bx-pod .bx-source-error .bx-error-title {
-    font-weight: bold;
-    margin-bottom: 8px;
-    font-size: 0.9em;
+	font-weight: bold;
+	margin-bottom: 8px;
+	font-size: 0.9em;
 }
 
 .bx-pod .bx-source-error .bx-error-message {
-    font-size: 0.85em;
-    line-height: 1.4;
+	font-size: 0.85em;
+	line-height: 1.4;
 }
 
 .bx-pod .bx-source-error .bx-error-retry {
-    margin-top: 12px;
-    text-align: center;
+	margin-top: 12px;
+	text-align: center;
 }
 
 .bx-pod .bx-source-error .bx-retry-button {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85em;
-    transition: background-color 0.2s ease;
+	background-color: #dc3545;
+	color: white;
+	border: none;
+	padding: 8px 16px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.85em;
+	transition: background-color 0.2s ease;
 }
 
 .bx-pod .bx-source-error .bx-retry-button:hover {
-    background-color: #c82333;
+	background-color: #c82333;
 }
 
 .bx-pod .bx-source-error .bx-retry-button:focus {
-    outline: 2px solid #721c24;
-    outline-offset: 2px;
+	outline: 2px solid #721c24;
+	outline-offset: 2px;
 }
 
 /* Pod auto-refresh functionality */
 .bx-pod[data-refresh-interval] .bx-pod-header::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 35px;
-    transform: translateY(-50%);
-    width: 8px;
-    height: 8px;
-    background-color: #28a745;
-    border-radius: 50%;
-    opacity: 0.7;
+	content: "";
+	position: absolute;
+	top: 50%;
+	right: 35px;
+	transform: translateY(-50%);
+	width: 8px;
+	height: 8px;
+	background-color: #28a745;
+	border-radius: 50%;
+	opacity: 0.7;
 }
 
 .bx-pod[data-refresh-interval].bx-refresh-paused .bx-pod-header::after {
-    background-color: #ffc107;
+	background-color: #ffc107;
 }
 
 /* Pod collapsible AJAX content */
 .bx-pod.bx-collapsible .bx-pod-content {
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-    overflow: hidden;
+	transition:
+		max-height 0.3s ease,
+		opacity 0.3s ease;
+	overflow: hidden;
 }
 
 .bx-pod.bx-collapsible.bx-collapsed .bx-pod-content {
-    max-height: 0;
-    opacity: 0;
+	max-height: 0;
+	opacity: 0;
 }
 
 .bx-pod.bx-collapsible.bx-collapsed .bx-loading,
 .bx-pod.bx-collapsible.bx-collapsed .bx-source-error {
-    display: none;
+	display: none;
 }
 
 /* Pod resize handle for AJAX content */
 .bx-pod .bx-resize-handle {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 20px;
-    height: 20px;
-    background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);
-    cursor: se-resize;
-    opacity: 0.5;
-    transition: opacity 0.2s ease;
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 20px;
+	height: 20px;
+	background: linear-gradient(
+		-45deg,
+		transparent 30%,
+		#ccc 30%,
+		#ccc 40%,
+		transparent 40%,
+		transparent 60%,
+		#ccc 60%,
+		#ccc 70%,
+		transparent 70%
+	);
+	cursor: se-resize;
+	opacity: 0.5;
+	transition: opacity 0.2s ease;
 }
 
 .bx-pod:hover .bx-resize-handle {
-    opacity: 0.8;
+	opacity: 0.8;
 }
 
 /* Pod content scrolling for large AJAX responses */
 .bx-pod .bx-pod-content {
-    max-height: 400px;
-    overflow-y: auto;
-    overflow-x: hidden;
+	max-height: 400px;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .bx-pod .bx-pod-content::-webkit-scrollbar {
-    width: 8px;
+	width: 8px;
 }
 
 .bx-pod .bx-pod-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
+	background: #f1f1f1;
+	border-radius: 4px;
 }
 
 .bx-pod .bx-pod-content::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
+	background: #c1c1c1;
+	border-radius: 4px;
 }
 
 .bx-pod .bx-pod-content::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+	background: #a8a8a8;
 }
 
 /* Firefox scrollbar */
 .bx-pod .bx-pod-content {
-    scrollbar-width: thin;
-    scrollbar-color: #c1c1c1 #f1f1f1;
+	scrollbar-width: thin;
+	scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
 /* Responsive pod AJAX */
 @media (max-width: 768px) {
-    .bx-pod .bx-loading {
-        padding: 15px;
-        margin: 5px;
-        font-size: 0.9em;
-    }
-    
-    .bx-pod .bx-source-error {
-        padding: 12px;
-        margin: 5px;
-    }
-    
-    .bx-pod .bx-pod-content {
-        max-height: 300px;
-    }
-    
-    .bx-pod .bx-resize-handle {
-        display: none; /* Hide resize handle on mobile */
-    }
+	.bx-pod .bx-loading {
+		padding: 15px;
+		margin: 5px;
+		font-size: 0.9em;
+	}
+
+	.bx-pod .bx-source-error {
+		padding: 12px;
+		margin: 5px;
+	}
+
+	.bx-pod .bx-pod-content {
+		max-height: 300px;
+	}
+
+	.bx-pod .bx-resize-handle {
+		display: none; /* Hide resize handle on mobile */
+	}
 }
 
 /* Accessibility improvements */
 .bx-pod .bx-pod-header[tabindex="0"]:focus {
-    outline: 2px solid #007bff;
-    outline-offset: 2px;
+	outline: 2px solid #007bff;
+	outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .bx-pod .bx-refresh-indicator {
-        animation: none;
-    }
-    
-    .bx-pod .bx-pod-content.bx-source-loaded {
-        animation: none;
-    }
-    
-    .bx-pod.bx-collapsible .bx-pod-content {
-        transition: none;
-    }
+	.bx-pod .bx-refresh-indicator {
+		animation: none;
+	}
+
+	.bx-pod .bx-pod-content.bx-source-loaded {
+		animation: none;
+	}
+
+	.bx-pod.bx-collapsible .bx-pod-content {
+		transition: none;
+	}
 }
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
-    .bx-pod .bx-loading {
-        border-width: 2px;
-        background-color: #fff;
-        color: #000;
-    }
-    
-    .bx-pod .bx-source-error {
-        border-width: 2px;
-        background-color: #fff;
-        color: #000;
-    }
-    
-    .bx-pod .bx-refresh-indicator {
-        border-color: #000;
-    }
+	.bx-pod .bx-loading {
+		border-width: 2px;
+		background-color: #fff;
+		color: #000;
+	}
+
+	.bx-pod .bx-source-error {
+		border-width: 2px;
+		background-color: #fff;
+		color: #000;
+	}
+
+	.bx-pod .bx-refresh-indicator {
+		border-color: #000;
+	}
 }
 
 /* Print styles */
 @media print {
-    .bx-pod .bx-loading,
-    .bx-pod .bx-refresh-indicator,
-    .bx-pod .bx-resize-handle {
-        display: none;
-    }
-    
-    .bx-pod .bx-source-error {
-        background: none;
-        border: 2px solid #000;
-    }
+	.bx-pod .bx-loading,
+	.bx-pod .bx-refresh-indicator,
+	.bx-pod .bx-resize-handle {
+		display: none;
+	}
+
+	.bx-pod .bx-source-error {
+		background: none;
+		border: 2px solid #000;
+	}
 }

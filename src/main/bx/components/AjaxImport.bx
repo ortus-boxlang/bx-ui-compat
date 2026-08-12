@@ -12,6 +12,8 @@
 @RequiresBody( false )
 class{
 
+	variables.validCompatTag = [ "button", "chart", "div", "fileupload", "form", "grid", "input-datefield", "layout", "layout-accordion", "layout-border", "layout-tab", "map", "messagebox", "pod", "progressbar", "slider", "textarea", "tooltip", "window"]
+	variables.moduleSupportedTags = [ "div", "grid", "layout", "pod", "progressbar", "tooltip", "window" ];
 	/**
 	 * The AjaxImport UI component
 	 *
@@ -42,6 +44,12 @@ class{
 
 		var output = "";
 
+		param request.$bxUICompat.importedTags = {
+			"css" : [],
+			"js" : [],
+			"initialized" : false
+		};
+
 		// Import CSS files
 		output &= generateCSSImports( attributes );
 
@@ -64,10 +72,11 @@ class{
 		var tags = attributes.tags;
 
 		// Core BoxLang AJAX CSS
-		cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />" & System.lineSeparator();
+		if( !request.$bxUICompat.importedTags.css.len() ){
+			cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />" & System.lineSeparator();
+		}
 
 		// Tag-specific CSS
-		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
@@ -76,25 +85,36 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout"; // Normalize to "layout" since it includes multiple related CSS files
 				}
-				if( importedTags.contains( tagName ) ){
-					continue; // Skip if already imported
+				if( !variables.validCompatTag.contains( tagName ) ){
+					throw(
+						type		= "boxlang.compat.ui.InvalidAttributeException",
+						message		= "The requested import tag #tagName# is invalid. Valid tags are: #variables.validCompatTag.toList()#"
+					);
+				} else if( !variables.moduleSupportedTags.contains( tagName ) || request.$bxUICompat.importedTags.css.contains( tagName ) ){
+					// Skip tags that are not supported by this module or have already been imported
+					continue;
 				}
 				if( tagName == "layout" ){
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout.css"" />" & System.lineSeparator();
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />" & System.lineSeparator();
-					importedTags.append( "layout" );
+					request.$bxUICompat.importedTags.css.append( "layout" );
 				} else {
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tagName#.css"" />";
-					importedTags.append( tagName );
+					request.$bxUICompat.importedTags.css.append( tagName );
 				}
 			}
 		} else {
 			// Import all common AJAX CSS files
-			var commonTags = [ "layout", "div", "grid", "tooltip", "pod" ];
+			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "tooltip", "progressbar", "window" ];
 			for( var tag in commonTags ){
+				if( request.$bxUICompat.importedTags.css.contains( tag ) ){
+					continue; // Skip if already imported
+				}
 				cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tag#.css"" />";
+				request.$bxUICompat.importedTags.css.append( tag );
 				if( tag == "layout" ){
 					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />";
+					request.$bxUICompat.importedTags.css.append( "layout-components" );
 				}
 			}
 		}
@@ -111,10 +131,11 @@ class{
 		var tags = attributes.tags;
 
 		// Core BoxLang AJAX JavaScript
-		jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>" & System.lineSeparator();
+		if( !request.$bxUICompat.importedTags.js.len() ){
+			jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>" & System.lineSeparator();
+		}
 
 		// Tag-specific JavaScript
-		var importedTags = [];
 		if( len( tags ) > 0 ){
 			var tagList = tags.listToArray( "," );
 			for( var tag in tagList ){
@@ -122,17 +143,27 @@ class{
 				if( findNoCase( "layout", tagName ) ){
 					tagName = "layout";
 				}
-				if( importedTags.contains( tagName ) ){
-					continue; // Skip if already imported
+				if( !variables.validCompatTag.contains( tagName ) ){
+					throw(
+						type		= "boxlang.compat.ui.InvalidAttributeException",
+						message		= "The requested import tag #tagName# is invalid. Valid tags are: #variables.validCompatTag.toList()#"
+					);
+				} else if( !variables.moduleSupportedTags.contains( tagName ) || request.$bxUICompat.importedTags.js.contains( tagName ) ){
+					// Skip tags that are not supported by this module or have already been imported
+					continue;
 				}
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>" & System.lineSeparator();
-				importedTags.append( tagName );
+				request.$bxUICompat.importedTags.js.append( tagName );
 			}
 		} else {
 			// Import all common AJAX JavaScript files
-			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy" ];
+			var commonTags = [ "layout", "div", "grid", "tooltip", "pod", "ajaxproxy", "progressbar", "window" ];
 			for( var tag in commonTags ){
+				if( request.$bxUICompat.importedTags.js.contains( tag ) ){
+					continue; // Skip if already imported
+				}
 				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#tag#.js""></script>" & System.lineSeparator();
+				request.$bxUICompat.importedTags.js.append( tag );
 			}
 		}
 
@@ -143,152 +174,157 @@ class{
 	 * Generate initialization script with configuration
 	 */
 	private function generateInitializationScript( required attributes ){
-		var script = "<script type=""text/javascript"">";
+		if( !request.$bxUICompat.importedTags.initialized ){
+			var script = "<script type=""text/javascript"">";
 
-		script &= "
-		// BoxLang AJAX Initialization
-		(function() {
-			// Create global BoxLang AJAX namespace if it doesn't exist
-			window.BoxLangAjax = window.BoxLangAjax || {
-				version: '1.0.0',
-				config: {
-					cssSrc: '#attributes.cssSrc#',
-					scriptSrc: '#attributes.scriptSrc#'
-				},
-				utils: {}
-			};
+			script &= "
+			// BoxLang AJAX Initialization
+			(function() {
+				// Create global BoxLang AJAX namespace if it doesn't exist
+				window.BoxLangAjax = window.BoxLangAjax || {
+					version: '1.0.0',
+					config: {
+						cssSrc: '#attributes.cssSrc#',
+						scriptSrc: '#attributes.scriptSrc#'
+					},
+					utils: {}
+				};
 
-			// Fetch API wrapper for consistent AJAX handling
-			BoxLangAjax.utils.fetchContent = async function(url, options = {}) {
-				const defaultOptions = {
-					method: 'GET',
-					headers: {
-						'X-Requested-With': 'XMLHttpRequest',
-						'Content-Type': 'application/x-www-form-urlencoded'
+				// Fetch API wrapper for consistent AJAX handling
+				BoxLangAjax.utils.fetchContent = async function(url, options = {}) {
+					const defaultOptions = {
+						method: 'GET',
+						headers: {
+							'X-Requested-With': 'XMLHttpRequest',
+							'Content-Type': 'application/x-www-form-urlencoded'
+						}
+					};
+
+					const fetchOptions = Object.assign({}, defaultOptions, options);
+
+					try {
+						const response = await fetch(url, fetchOptions);
+
+						if (!response.ok) {
+							throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+						}
+
+						const contentType = response.headers.get('content-type');
+						if (contentType && contentType.includes('application/json')) {
+							return await response.json();
+						} else {
+							return await response.text();
+						}
+					} catch (error) {
+						console.error('BoxLang AJAX Error:', error);
+						throw error;
 					}
 				};
 
-				const fetchOptions = Object.assign({}, defaultOptions, options);
-
-				try {
-					const response = await fetch(url, fetchOptions);
-
-					if (!response.ok) {
-						throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+				// Container management for AJAX content loading
+				BoxLangAjax.utils.loadIntoContainer = function(containerId, url, options = {}) {
+					const container = document.getElementById(containerId);
+					if (!container) {
+						console.error('Container not found: ' + containerId);
+						return Promise.reject(new Error('Container not found: ' + containerId));
 					}
 
-					const contentType = response.headers.get('content-type');
-					if (contentType && contentType.includes('application/json')) {
-						return await response.json();
+					// Show loading indicator
+					const originalContent = container.innerHTML;
+					container.innerHTML = '<div class=""bx-loading"">Loading...</div>';
+
+					return BoxLangAjax.utils.fetchContent(url, options)
+						.then(function(content) {
+							container.innerHTML = content;
+							// Trigger custom event for loaded content
+							container.dispatchEvent(new CustomEvent('boxlang-content-loaded', {
+								detail: { url: url, container: containerId }
+							}));
+							return content;
+						})
+						.catch(function(error) {
+							container.innerHTML = '<div class=""bx-error"">Error loading content: ' + error.message + '</div>';
+							throw error;
+						});
+				};
+
+				// Handle AJAX links - finds the nearest AJAX container and loads content
+				BoxLangAjax.utils.handleAjaxLink = function(url, event) {
+					if (event) {
+						event.preventDefault();
+					}
+
+					// Find the nearest AJAX container (div with bx-* class or specific containers)
+					let currentElement = event ? event.target : null;
+					let container = null;
+
+					// Search up the DOM tree for a suitable container
+					while (currentElement && currentElement !== document.body) {
+						if (currentElement.classList && (
+							currentElement.classList.contains('bx-layout') ||
+							currentElement.classList.contains('bx-div') ||
+							currentElement.classList.contains('bx-pod') ||
+							currentElement.classList.contains('bx-layoutarea') ||
+							currentElement.id
+						)) {
+							container = currentElement;
+							break;
+						}
+						currentElement = currentElement.parentElement;
+					}
+
+					if (!container) {
+						// If no suitable container found, try to find the first available one
+						container = document.querySelector('.bx-layout, .bx-div, .bx-pod, [id]') || document.body;
+					}
+
+					// Load content into the container
+					if (container.id) {
+						return BoxLangAjax.utils.loadIntoContainer(container.id, url);
 					} else {
-						return await response.text();
+						// If container has no ID, generate one
+						const containerId = 'bx-ajax-container-' + Date.now();
+						container.id = containerId;
+						return BoxLangAjax.utils.loadIntoContainer(containerId, url);
 					}
-				} catch (error) {
-					console.error('BoxLang AJAX Error:', error);
-					throw error;
-				}
-			};
+				};
 
-			// Container management for AJAX content loading
-			BoxLangAjax.utils.loadIntoContainer = function(containerId, url, options = {}) {
-				const container = document.getElementById(containerId);
-				if (!container) {
-					console.error('Container not found: ' + containerId);
-					return Promise.reject(new Error('Container not found: ' + containerId));
-				}
-
-				// Show loading indicator
-				const originalContent = container.innerHTML;
-				container.innerHTML = '<div class=""bx-loading"">Loading...</div>';
-
-				return BoxLangAjax.utils.fetchContent(url, options)
-					.then(function(content) {
-						container.innerHTML = content;
-						// Trigger custom event for loaded content
-						container.dispatchEvent(new CustomEvent('boxlang-content-loaded', {
-							detail: { url: url, container: containerId }
-						}));
-						return content;
-					})
-					.catch(function(error) {
-						container.innerHTML = '<div class=""bx-error"">Error loading content: ' + error.message + '</div>';
-						throw error;
+				// Initialize on DOM ready
+				if (document.readyState === 'loading') {
+					document.addEventListener('DOMContentLoaded', function() {
+						console.log('BoxLang AJAX initialized');
 					});
-			};
-
-			// Handle AJAX links - finds the nearest AJAX container and loads content
-			BoxLangAjax.utils.handleAjaxLink = function(url, event) {
-				if (event) {
-					event.preventDefault();
-				}
-
-				// Find the nearest AJAX container (div with bx-* class or specific containers)
-				let currentElement = event ? event.target : null;
-				let container = null;
-
-				// Search up the DOM tree for a suitable container
-				while (currentElement && currentElement !== document.body) {
-					if (currentElement.classList && (
-						currentElement.classList.contains('bx-layout') ||
-						currentElement.classList.contains('bx-div') ||
-						currentElement.classList.contains('bx-pod') ||
-						currentElement.classList.contains('bx-layoutarea') ||
-						currentElement.id
-					)) {
-						container = currentElement;
-						break;
-					}
-					currentElement = currentElement.parentElement;
-				}
-
-				if (!container) {
-					// If no suitable container found, try to find the first available one
-					container = document.querySelector('.bx-layout, .bx-div, .bx-pod, [id]') || document.body;
-				}
-
-				// Load content into the container
-				if (container.id) {
-					return BoxLangAjax.utils.loadIntoContainer(container.id, url);
 				} else {
-					// If container has no ID, generate one
-					const containerId = 'bx-ajax-container-' + Date.now();
-					container.id = containerId;
-					return BoxLangAjax.utils.loadIntoContainer(containerId, url);
-				}
-			};
-
-			// Initialize on DOM ready
-			if (document.readyState === 'loading') {
-				document.addEventListener('DOMContentLoaded', function() {
 					console.log('BoxLang AJAX initialized');
-				});
-			} else {
-				console.log('BoxLang AJAX initialized');
-			}
-		})();
-		";
-
-		// Add parameter-specific configuration
-		if( len( attributes.params ) > 0 ){
-			script &= "
-			// Additional parameters configuration
-			BoxLangAjax.config.params = {};
+				}
+			})();
 			";
 
-			// Parse params (simple key=value parsing)
-			var paramList = attributes.params.listToArray( "," );
-			for( var param in paramList ){
-				var keyValue = param.listToArray( "=" );
-				if( keyValue.len() == 2 ){
-					var key = trim( keyValue[1] );
-					var value = trim( keyValue[2] );
-					script &= "BoxLangAjax.config.params['#key#'] = '#value#';";
+			// Add parameter-specific configuration
+			if( len( attributes.params ) > 0 ){
+				script &= "
+				// Additional parameters configuration
+				BoxLangAjax.config.params = {};
+				";
+
+				// Parse params (simple key=value parsing)
+				var paramList = attributes.params.listToArray( "," );
+				for( var param in paramList ){
+					var keyValue = param.listToArray( "=" );
+					if( keyValue.len() == 2 ){
+						var key = trim( keyValue[1] );
+						var value = trim( keyValue[2] );
+						script &= "BoxLangAjax.config.params['#key#'] = '#value#';";
+					}
 				}
 			}
+
+			script &= "</script>";
+			request.$bxUICompat.importedTags.initialized = true;
+			return script;
+		} else {
+			return ""; // Already initialized, no need to generate script again
 		}
 
-		script &= "</script>";
-
-		return script;
 	}
 }

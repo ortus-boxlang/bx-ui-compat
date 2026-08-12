@@ -98,6 +98,12 @@ class{
 			);
 		}
 
+		// Automatically add our import if it has not already been requested
+		var requestImports = request.$bxUICompat?.importedTags ?: { "js": [], "css": [] };
+		if( !requestImports.js.contains( "grid" ) ){
+			bx:ajaximport tags="grid";
+		}
+
 		// Set default values
 		param attributes.query = "";
 		param attributes.pageSize = 25;
@@ -151,7 +157,7 @@ class{
 		param attributes.resetHead = false;
 		param attributes.rowHeight = "";
 		param attributes.selectColor = "";
-		param attributes.selectOnLoad = false;
+		param attributes.selectOnLoad = true;
 		param attributes.stripeRowColor = "";
 		param attributes.target = "";
 		param attributes.textColor = "";
@@ -292,6 +298,22 @@ class{
 		if( !isNull( attributes.bind ) && len( attributes.bind ) ){
 			gridContent &= " data-bind=""#encodeForHTMLAttribute( attributes.bind )#""";
 			gridContent &= " data-bind-on-load=""#attributes.bindOnLoad#""";
+
+			// Resolve prefix and emit data-source
+			if( attributes.bind.startsWith( "cfc:" ) ){
+				var resolvedUrl = parseCfcBindExpression( attributes.bind );
+				if( len( resolvedUrl ) ){
+					gridContent &= " data-source=""#resolvedUrl#""";
+				}
+			} else if( attributes.bind.startsWith( "url:" ) ){
+				gridContent &= " data-source=""#attributes.bind.substring( 4 )#""";
+			}
+
+			// Extract bind params token list and emit
+			var bindParams = extractBindParams( attributes.bind );
+			if( len( bindParams ) ){
+				gridContent &= " data-bind-params=""#bindParams#""";
+			}
 		}
 		if( !isNull( attributes.href ) && len( attributes.href ) ){
 			gridContent &= " data-href=""#encodeForHTMLAttribute( attributes.href )#""";
@@ -379,6 +401,51 @@ class{
 		var buffer = newBuffer();
 		var bodyResult = processBody( context, body, buffer );
 
+		// Resolve query: if it's a string variable name, look it up from caller's scope
+		if( !isNull( executionState.query ) && isSimpleValue( executionState.query ) && len( executionState.query ) ){
+			var queryVarName = executionState.query;
+			try {
+				var callerScope = context.getScopeNearby( "variables" );
+				if( !isNull( callerScope ) && callerScope.containsKey( queryVarName ) ){
+					executionState.query = callerScope.get( queryVarName );
+				}
+			} catch( any e ){
+				throw(
+					type		= "boxlang.compat.ui.InvalidAttributeException",
+					message		= "The query attribute value '#queryVarName#' could not be resolved to a Query object in the caller's scope."
+				);
+			}
+		}
+
+		// Auto-generate columns from query if no GridColumn children were defined
+		if( !isNull( executionState.query ) && isQuery( executionState.query ) && executionState.columns.isEmpty() ){
+			var queryColumns = executionState.query.getColumnNames();
+			for( var colName in queryColumns ){
+				executionState.columns.append( {
+					"name" : colName,
+					"header" : colName,
+					"width" : "",
+					"sortable" : attributes.sortable,
+					"editable" : attributes.editable,
+					"dataAlign" : attributes.gridDataAlign,
+					"headerAlign" : "left",
+					"display" : true,
+					"type" : "string",
+					"numberFormat" : "",
+					"dateFormat" : "",
+					"values" : [],
+					"valuesDisplay" : [],
+					"href" : "",
+					"target" : ""
+				} );
+			}
+		}
+
+		// Hide columns that are marked as display=false
+		if( structKeyExists( executionState, "columns" ) ) {
+			executionState.columns = executionState.columns.filter( ( column ) => ( column.display ?: true ) );
+		}
+
 		// Generate grid table structure
 		generateGridStructure( context, attributes, executionState );
 
@@ -407,6 +474,11 @@ class{
 
 		tableContent &= "</table>";
 
+		// Add hidden selection input for row/all modes
+		if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
+			tableContent &= "<input type=""hidden"" name=""#encodeForHTMLAttribute( executionState.gridName )#_selection"" id=""#encodeForHTMLAttribute( executionState.gridName )#_selection"" value="""">";
+		}
+
 		// Add action buttons if enabled
 		if( attributes.insertButton || attributes.deleteButton ){
 			tableContent &= generateGridActionButtons( attributes );
@@ -426,15 +498,6 @@ class{
 	private function generateGridHeaders( required attributes, required executionState ){
 		var headContent = "<thead class=""bx-grid-header""><tr>";
 
-		// Add selection column if needed (only for row and all modes)
-		if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
-			// "all" uses checkbox for multi-row; "row" uses radio for single-row
-			var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
-			headContent &= "<th class=""bx-grid-select-header"">";
-			headContent &= "<input type=""#selectType#"" class=""bx-grid-select-all"" />";
-			headContent &= "</th>";
-		}
-
 		// Generate column headers
 		var columns = executionState.columns ?: [];
 		for( var column in columns ){
@@ -445,6 +508,7 @@ class{
 
 			headContent &= "<th class=""bx-grid-column-header#sortClass#""";
 			headContent &= " data-column=""#encodeForHTMLAttribute( column.name )#""";
+			headContent &= " data-type=""#encodeForHTMLAttribute( column.type ?: "text" )#""";
 
 			// Build column header styles
 			var headerStyles = [];
@@ -503,14 +567,6 @@ class{
 			for( var i = startRow; i <= endRow; i++ ){
 				rowsContent &= "<tr class=""bx-grid-row"" data-row=""#i#"">";
 
-				// Add selection column only for row and all modes
-				if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
-					var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
-					rowsContent &= "<td class=""bx-grid-select-cell"">";
-					rowsContent &= "<input type=""#selectType#"" name=""#executionState.gridName#_select"" value=""#i#"" />";
-					rowsContent &= "</td>";
-				}
-
 				// Generate data cells
 				for( var column in columns ){
 					var cellValue = "";
@@ -546,14 +602,6 @@ class{
 				// Fallback to basic row generation for backward compatibility
 				rowsContent &= "<tr class=""bx-grid-row"">";
 
-				// Add selection column only for row and all modes
-				if( executionState.selectMode == "row" || executionState.selectMode == "all" ){
-					var selectType = executionState.selectMode == "all" ? "checkbox" : "radio";
-					rowsContent &= "<td class=""bx-grid-select-cell"">";
-					rowsContent &= "<input type=""#selectType#"" name=""#executionState.gridName#_select"" />";
-					rowsContent &= "</td>";
-				}
-
 				// Generate data cells from row data
 				for( var column in columns ){
 					var cellValue = row[ column.name ] ?: "";
@@ -566,8 +614,10 @@ class{
 						rowsContent &= " contenteditable=""true""";
 					}
 
+					param column.type = "text";
+
 					rowsContent &= ">";
-					rowsContent &= encodeForHTML( cellValue );
+					rowsContent &= column.type == "html" ? cellValue : encodeForHTML( cellValue );
 					rowsContent &= "</td>";
 				}
 
@@ -660,8 +710,19 @@ class{
 	 */
 	private function generateGridBehaviorScript( required attributes, required executionState ){
 		var selectMode = lcase( executionState.selectMode );
+
+		// Determine if this grid uses an AJAX bind (cfc:/url: prefix). When true, sort clicks
+		// must redispatch the AJAX call with the updated gridsortcolumn/gridsortdirection
+		// values rather than performing a local DOM sort.
+		var bindExpression = attributes.bind ?: "";
+		var hasAjaxBind = isSimpleValue( bindExpression ) && len( bindExpression ) && ( bindExpression.startsWith( "cfc:" ) || bindExpression.startsWith( "url:" ) );
+
 		return "
 			var selectMode = '#selectMode#';
+			var hasAjaxBind = #hasAjaxBind#;
+
+			// Track last clicked row for shift+click range selection
+			var _lastClickedRowIndex = -1;
 
 			// Grid event handlers
 			grid.addEventListener('click', function(e) {
@@ -676,11 +737,6 @@ class{
 				if (e.target.classList.contains('bx-grid-page-btn')) {
 					var page = parseInt(e.target.dataset.page);
 					goToPage(page);
-				}
-
-				// Handle select all checkbox (row/all modes only)
-				if (e.target.classList.contains('bx-grid-select-all')) {
-					toggleSelectAll(e.target.checked);
 				}
 
 				// Handle cell/row/column selection based on selectMode
@@ -724,48 +780,119 @@ class{
 			}
 
 			function handleSelection(cell, event) {
-				// Clear previous selections
-				grid.querySelectorAll('.bx-grid-cell-selected, .bx-grid-row-selected, .bx-grid-col-selected').forEach(function(el) {
-					el.classList.remove('bx-grid-cell-selected', 'bx-grid-row-selected', 'bx-grid-col-selected');
-				});
-
-				var column = cell.dataset.column;
 				var row = cell.closest('.bx-grid-row');
+				if (!row) return;
+				var rowIndex = parseInt(row.dataset.row);
 
 				if (selectMode === 'single') {
 					// Highlight only the clicked cell
+					clearAllSelections();
 					cell.classList.add('bx-grid-cell-selected');
 				} else if (selectMode === 'row') {
-					// Highlight the entire row
-					row.classList.add('bx-grid-row-selected');
-					row.querySelectorAll('.bx-grid-cell').forEach(function(c) {
-						c.classList.add('bx-grid-cell-selected');
-					});
-					// Sync the radio button
-					var radio = row.querySelector('input[type=""radio""]');
-					if (radio) radio.checked = true;
+					// Single-row selection: clear all, select this row
+					clearAllSelections();
+					selectRow(row, rowIndex);
 				} else if (selectMode === 'column') {
 					// Highlight all cells in the same column
+					clearAllSelections();
+					var column = cell.dataset.column;
 					grid.querySelectorAll('.bx-grid-cell[data-column=""' + column + '""]').forEach(function(c) {
 						c.classList.add('bx-grid-col-selected');
 					});
 					grid.querySelector('.bx-grid-column-header[data-column=""' + column + '""]')
 						.classList.add('bx-grid-col-selected');
 				} else if (selectMode === 'all') {
-					// Toggle row selection via checkbox
-					var checkbox = row.querySelector('input[type=""checkbox""]');
-					if (checkbox && !event.target.closest('.bx-grid-select-cell')) {
-						checkbox.checked = !checkbox.checked;
+					if (event.shiftKey && _lastClickedRowIndex >= 0) {
+						// Shift+click range selection
+						var start = Math.min(_lastClickedRowIndex, rowIndex);
+						var end = Math.max(_lastClickedRowIndex, rowIndex);
+						clearAllSelections();
+						grid.querySelectorAll('.bx-grid-row').forEach(function(r) {
+							var rIdx = parseInt(r.dataset.row);
+							if (rIdx >= start && rIdx <= end) {
+								selectRow(r, rIdx);
+							}
+						});
+					} else {
+						// Toggle this row
+						var isSelected = row.classList.contains('bx-grid-row-selected');
+						if (isSelected) {
+							deselectRow(row);
+						} else {
+							selectRow(row, rowIndex);
+						}
 					}
-					row.classList.toggle('bx-grid-row-selected', checkbox ? checkbox.checked : true);
-					cell.classList.add('bx-grid-cell-selected');
+					_lastClickedRowIndex = rowIndex;
 				}
 
-				// Fire selection event
-				var selectionEvent = new CustomEvent('gridCellSelect', {
-					detail: { column: column, row: row ? row.dataset.row : null, selectMode: selectMode }
+				// Update hidden input and dispatch selection change event
+				updateSelectionInput();
+				dispatchGridSelectionChange();
+			}
+
+			function clearAllSelections() {
+				grid.querySelectorAll('.bx-grid-cell-selected, .bx-grid-row-selected, .bx-grid-col-selected').forEach(function(el) {
+					el.classList.remove('bx-grid-cell-selected', 'bx-grid-row-selected', 'bx-grid-col-selected');
 				});
-				grid.dispatchEvent(selectionEvent);
+			}
+
+			function selectRow(row, rowIndex) {
+				row.classList.add('bx-grid-row-selected');
+				row.querySelectorAll('.bx-grid-cell').forEach(function(c) {
+					c.classList.add('bx-grid-cell-selected');
+				});
+			}
+
+			function deselectRow(row) {
+				row.classList.remove('bx-grid-row-selected');
+				row.querySelectorAll('.bx-grid-cell').forEach(function(c) {
+					c.classList.remove('bx-grid-cell-selected');
+				});
+			}
+
+			function updateSelectionInput() {
+				var hiddenInput = document.getElementById('#executionState.gridName#_selection');
+				var selectedRows = grid.querySelectorAll('.bx-grid-row-selected');
+				var indices = [];
+				selectedRows.forEach(function(r) {
+					indices.push(parseInt(r.dataset.row));
+				});
+				if (hiddenInput) {
+					hiddenInput.value = indices.join(',');
+				}
+				// Store selected row data as JSON on the grid's dataset
+				var rowData = {};
+				if (selectedRows.length > 0) {
+					var firstSelected = selectedRows[0];
+					firstSelected.querySelectorAll('.bx-grid-cell').forEach(function(cell) {
+						var colName = cell.dataset.column;
+						if (colName) {
+							rowData[colName] = cell.textContent.trim();
+						}
+					});
+				}
+				grid.dataset.selectedRowData = JSON.stringify(rowData);
+			}
+
+			function dispatchGridSelectionChange() {
+				var hiddenInput = document.getElementById('#executionState.gridName#_selection');
+				var rawValue = hiddenInput ? hiddenInput.value : '';
+				var indices = rawValue ? rawValue.split(',').map(Number) : [];
+				var rowData = {};
+				try {
+					rowData = JSON.parse(grid.dataset.selectedRowData || '{}');
+				} catch(e) {}
+
+				var event = new CustomEvent('gridSelectionChange', {
+					detail: {
+						gridName: '#executionState.gridName#',
+						selectedRowIndex: indices.length > 0 ? indices[0] : null,
+						selectedRowIndices: indices,
+						selectedRowData: rowData
+					},
+					bubbles: true
+				});
+				grid.dispatchEvent(event);
 			}
 
 			function sortColumn(column) {
@@ -781,6 +908,19 @@ class{
 
 				// Add new sort class
 				header.classList.add('bx-grid-sorted', 'bx-grid-sort-' + newSort);
+
+				// Keep the dataset in sync so resolveBindParams() picks up the latest
+				// sort column/direction when the AJAX call re-evaluates bind tokens
+				grid.dataset.currentSort = column;
+				grid.dataset.currentOrder = newSort;
+
+				// When the grid is bound to an AJAX data source (cfc:/url: prefix),
+				// redispatch via the AJAX layer so the server receives the new
+				// gridsortcolumn/gridsortdirection parameters. Otherwise fall back
+				// to a local DOM sort.
+				if (hasAjaxBind && window.BXUICompat && window.BXUICompat.Grid && window.BXUICompat.Grid.sortBy) {
+					window.BXUICompat.Grid.sortBy(grid.id, column);
+				}
 
 				// Fire sort event
 				#len( attributes.onSort ) ? attributes.onSort & '(column, newSort);' : 'sortRows( column, newSort );'#
@@ -799,11 +939,10 @@ class{
 				// Find column index
 				var headers = grid.querySelectorAll('.bx-grid-column-header');
 				var columnIndex = -1;
-				var selectColumnOffset = (selectMode === 'row' || selectMode === 'all') ? 1 : 0;
 
 				for (var i = 0; i < headers.length; i++) {
 					if (headers[i].dataset.column === column) {
-						columnIndex = i + selectColumnOffset;
+						columnIndex = i;
 						break;
 					}
 				}
@@ -847,17 +986,86 @@ class{
 				grid.dispatchEvent(event);
 			}
 
-			function toggleSelectAll(checked) {
-				grid.querySelectorAll('input[name=""#executionState.gridName#_select""]').forEach(function(cb) {
-					cb.checked = checked;
-				});
-				grid.querySelectorAll('.bx-grid-row').forEach(function(row) {
-					row.classList.toggle('bx-grid-row-selected', checked);
-				});
+			// Auto-select first row on load
+			var selectOnLoad = grid.dataset.selectOnLoad === 'true';
+			if (selectOnLoad) {
+				setTimeout(function() {
+					var firstRow = grid.querySelector('.bx-grid-row');
+					if (firstRow) {
+						var firstCell = firstRow.querySelector('.bx-grid-cell');
+						if (firstCell) {
+							handleSelection(firstCell, {});
+						}
+					}
+				}, 0);
 			}
 
 			// Fire load event
 			#len( attributes.onLoad ) ? 'setTimeout(function() { ' & attributes.onLoad & '(); }, 0);' : ''#
 		";
+	}
+
+	/**
+	 * Parse a cfc: bind expression and return the resolved URL.
+	 *
+	 * Example: cfc:component.PartnerCRUD.getPartnerRecords({cfgridpage},{cfgridpagesize})
+	 * Returns: component/PartnerCRUD.cfc?method=getPartnerRecords&returnFormat=json
+	 *
+	 * @param bindExpression The raw bind expression string
+	 * @return The resolved URL string (relative path)
+	 */
+	private function parseCfcBindExpression( required string bindExpression ){
+		// Strip cfc: prefix
+		var expression = bindExpression.substring( 4 );
+
+		// Split on the first '(' to separate path from args
+		var parenPos = expression.indexOf( "(" );
+		var functionPath = parenPos > 0 ? expression.substring( 0, parenPos ) : expression;
+
+		// Split the dotted path on the last '.' to get method name
+		var lastDotPos = functionPath.lastIndexOf( "." );
+		var methodName = "";
+		var dirPath = "";
+
+		if( lastDotPos > 0 ){
+			methodName = functionPath.substring( lastDotPos + 1 );
+			dirPath = functionPath.substring( 0, lastDotPos );
+		} else {
+			// No dots; the entire path is the CFC name with method unknown
+			dirPath = functionPath;
+		}
+
+		// Convert dots in the directory path to slashes
+		// If the path already contains slashes (e.g. component/PartnerCRUD), leave as-is
+		dirPath = dirPath.replace( ".", "/", "all" );
+
+		// Build the URL
+		var resolvedUrl = dirPath & ".cfc";
+		if( len( methodName ) ){
+			resolvedUrl &= "?method=" & methodName & "&returnFormat=json";
+		}
+
+		return resolvedUrl;
+	}
+
+	/**
+	 * Extract the bind parameter tokens from a bind expression.
+	 *
+	 * Example: cfc:component.PartnerCRUD.getPartnerRecords({cfgridpage},{cfgridpagesize})
+	 * Returns: {cfgridpage},{cfgridpagesize}
+	 *
+	 * @param bindExpression The raw bind expression string
+	 * @return The comma-separated token list, or empty string if no params
+	 */
+	private function extractBindParams( required string bindExpression ){
+		// Find the first '(' and the last ')'
+		var parenStart = bindExpression.indexOf( "(" );
+		var parenEnd = bindExpression.lastIndexOf( ")" );
+
+		if( parenStart > 0 && parenEnd > parenStart ){
+			return bindExpression.substring( parenStart + 1, parenEnd );
+		}
+
+		return "";
 	}
 }

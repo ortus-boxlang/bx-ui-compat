@@ -1,0 +1,107 @@
+/* Hide the server-side seed element – its content is moved into the dialog body */
+.bx-cfwindow-seed {
+	display: none !important;
+}
+
+/* Shared font baseline for window */
+dialog.bx-window {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
+/* dialog[open] is the only state where flex layout should apply.
+   Without [open], the browser sets display:none; overriding that here
+   would break dialog.close(). */
+dialog.bx-window[open] {
+	display: flex;
+	flex-direction: column;
+}
+dialog.bx-window {
+	position: fixed;
+	padding: 0;
+	/* Center by default: top/left are overridden by JS only when an explicit
+	   x/y position or cascade offset is provided. */
+	inset: 0;
+	margin: auto;
+	border: none;
+	border-radius: 4px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+	z-index: 9001;
+	overflow: hidden;
+	background: #fff;
+	max-width: 98vw;
+	max-height: 96vh;
+}
+
+/* Native ::backdrop for showModal() */
+dialog.bx-window::backdrop {
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.bx-window-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	background: #4a4a4a;
+	color: #fff;
+	cursor: move;
+	user-select: none;
+	flex-shrink: 0;
+}
+.bx-window-title {
+	flex: 1;
+	font-weight: bold;
+	font-size: 14px;
+}
+.bx-window-close {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0 4px;
+}
+.bx-window-close:hover {
+	opacity: 0.7;
+}
+
+.bx-window-body {
+	flex: 1;
+	overflow: auto;
+	padding: 0;
+	position: relative;
+}
+.bx-window-body iframe {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	border: none;
+	display: block;
+}
+
+.bx-window-resizer {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 14px;
+	height: 14px;
+	cursor: se-resize;
+	/* small visual grip */
+	background: linear-gradient(
+		135deg,
+		transparent 50%,
+		rgba(0, 0, 0, 0.2) 50%
+	);
+}

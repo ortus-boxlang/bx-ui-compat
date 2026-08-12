@@ -1,153 +1,177 @@
 /**
+
  * BoxLang Div Component AJAX CSS
  * Styles for AJAX functionality in div components
  */
 
 /* Div AJAX container styles */
+.bx-div {
+	font-family:
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		Arial,
+		"Noto Sans",
+		"Liberation Sans",
+		sans-serif;
+	font-size: 14px;
+}
+
 .bx-div[data-source] {
-    position: relative;
-    min-height: 20px;
+	position: relative;
+	min-height: 20px;
 }
 
 .bx-div .bx-loading {
-    padding: 15px;
-    text-align: center;
-    background-color: #f9f9f9;
-    border: 1px solid #e1e1e1;
-    border-radius: 4px;
-    margin: 5px 0;
+	padding: 15px;
+	text-align: center;
+	background-color: #f9f9f9;
+	border: 1px solid #e1e1e1;
+	border-radius: 4px;
+	margin: 5px 0;
 }
 
 .bx-div .bx-source-error {
-    border-radius: 4px;
-    margin: 5px 0;
+	border-radius: 4px;
+	margin: 5px 0;
 }
 
 /* Auto-refresh indicators */
 .bx-div[data-refresh] .bx-refresh-indicator {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 8px;
-    height: 8px;
-    background-color: #4caf50;
-    border-radius: 50%;
-    opacity: 0.7;
+	position: absolute;
+	top: 5px;
+	right: 5px;
+	width: 8px;
+	height: 8px;
+	background-color: #4caf50;
+	border-radius: 50%;
+	opacity: 0.7;
 }
 
 .bx-div[data-refresh].bx-refreshing .bx-refresh-indicator {
-    animation: bx-pulse 1s infinite;
-    background-color: #ff9800;
+	animation: bx-pulse 1s infinite;
+	background-color: #ff9800;
 }
 
 @keyframes bx-pulse {
-    0% { opacity: 0.7; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.2); }
-    100% { opacity: 0.7; transform: scale(1); }
+	0% {
+		opacity: 0.7;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+	100% {
+		opacity: 0.7;
+		transform: scale(1);
+	}
 }
 
 /* Div content transitions */
 .bx-div .bx-source-loaded {
-    animation: bx-div-slide-in 0.3s ease-out;
+	animation: bx-div-slide-in 0.3s ease-out;
 }
 
 @keyframes bx-div-slide-in {
-    from {
-        opacity: 0;
-        transform: translateX(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
 }
 
 /* Overlay loading for divs with existing content */
 .bx-div .bx-ajax-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    border-radius: inherit;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(255, 255, 255, 0.9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+	border-radius: inherit;
 }
 
 /* Div size constraints for AJAX content */
 .bx-div .bx-ajax-content {
-    max-width: 100%;
-    overflow: hidden;
+	max-width: 100%;
+	overflow: hidden;
 }
 
 .bx-div .bx-ajax-content img {
-    max-width: 100%;
-    height: auto;
+	max-width: 100%;
+	height: auto;
 }
 
 /* Error retry functionality */
 .bx-div .bx-error-retry {
-    margin-top: 10px;
-    text-align: center;
+	margin-top: 10px;
+	text-align: center;
 }
 
 .bx-div .bx-error-retry button {
-    background-color: #2196f3;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
+	background-color: #2196f3;
+	color: white;
+	border: none;
+	padding: 8px 16px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.9em;
 }
 
 .bx-div .bx-error-retry button:hover {
-    background-color: #1976d2;
+	background-color: #1976d2;
 }
 
 .bx-div .bx-error-retry button:focus {
-    outline: 2px solid #64b5f6;
-    outline-offset: 2px;
+	outline: 2px solid #64b5f6;
+	outline-offset: 2px;
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
-    .bx-div .bx-loading {
-        padding: 10px;
-        font-size: 0.9em;
-    }
-    
-    .bx-div .bx-error-retry button {
-        padding: 6px 12px;
-        font-size: 0.8em;
-    }
+	.bx-div .bx-loading {
+		padding: 10px;
+		font-size: 0.9em;
+	}
+
+	.bx-div .bx-error-retry button {
+		padding: 6px 12px;
+		font-size: 0.8em;
+	}
 }
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
-    .bx-div .bx-source-loaded {
-        animation: none;
-    }
-    
-    .bx-div .bx-refresh-indicator {
-        animation: none;
-    }
+	.bx-div .bx-source-loaded {
+		animation: none;
+	}
+
+	.bx-div .bx-refresh-indicator {
+		animation: none;
+	}
 }
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
-    .bx-div .bx-loading {
-        border-width: 2px;
-        background-color: #fff;
-        color: #000;
-    }
-    
-    .bx-div .bx-error-retry button {
-        border: 2px solid #000;
-        color: #000;
-        background-color: #fff;
-    }
+	.bx-div .bx-loading {
+		border-width: 2px;
+		background-color: #fff;
+		color: #000;
+	}
+
+	.bx-div .bx-error-retry button {
+		border: 2px solid #000;
+		color: #000;
+		background-color: #fff;
+	}
 }

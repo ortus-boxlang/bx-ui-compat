@@ -86,7 +86,7 @@ jobs:
           fail_on_failure: true
           detailed_summary: true
 
-      - name: Upload Test Results
+      - name: Upload Core Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -94,6 +94,18 @@ jobs:
           path: |
             **/build/reports/tests/**
             **/build/test-results/**
+
+      - name: Setup Node.js for Javascript Tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Run JS Tests
+        run: npm test
 
       - name: Inform Slack
         if: ${{ failure() && github.ref == 'refs/heads/development' }}

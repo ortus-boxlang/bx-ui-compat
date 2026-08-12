@@ -29,7 +29,7 @@ class{
 	 * @attribute.dataAlign - string, optional - Data alignment: left, center, right (default: left)
 	 * @attribute.headerAlign - string, optional - Header alignment: left, center, right (default: left)
 	 * @attribute.display - boolean, optional - Whether to display this column (default: true)
-	 * @attribute.type - string, optional - Data type: string, numeric, date, boolean (default: string)
+	 * @attribute.type - string, optional - Data type: string, html, numeric, date, boolean.  If html, the content will not be HTML-encoded (default: string)
 	 * @attribute.numberFormat - string, optional - Number format mask for numeric columns
 	 * @attribute.dateFormat - string, optional - Date format mask for date columns
 	 * @attribute.values - string, optional - Comma-delimited list of values for dropdown editing
@@ -95,7 +95,7 @@ class{
 		}
 
 		// Validate type attribute
-		var validTypes = [ "string", "numeric", "date", "boolean" ];
+		var validTypes = [ "string", "html", "numeric", "date", "boolean" ];
 		if( !validTypes.containsNoCase( attributes.type ) ){
 			throw(
 				type		= "boxlang.compat.ui.InvalidAttributeException",
@@ -199,7 +199,7 @@ class{
 	 */
 	public static function generateCellHTML( required value, required columnData, rowData = {} ){
 		var formattedValue = formatCellValue( value, columnData );
-		var cellHTML = encodeForHTML( formattedValue );
+		var cellHTML = columnData.type == "html" ? formattedValue : encodeForHTML( formattedValue );
 
 		// Handle href attribute for links
 		if( !isNull( columnData.href ) && len( columnData.href ) ){
@@ -221,7 +221,7 @@ class{
 		if( columnData.values.len() > 0 ){
 			var valueIndex = columnData.values.findNoCase( value );
 			if( valueIndex > 0 && columnData.valuesDisplay.len() >= valueIndex ){
-				cellHTML = encodeForHTML( columnData.valuesDisplay[ valueIndex ] );
+				cellHTML = columnData.type == "html" ? columnData.valuesDisplay[ valueIndex ] : encodeForHTML( columnData.valuesDisplay[ valueIndex ] );
 			}
 		}
 

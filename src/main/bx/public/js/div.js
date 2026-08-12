@@ -57,7 +57,7 @@
 				return;
 			}
 
-			// Clear existing intervals
+			// Stop existing auto-refresh (uses shared utility)
 			this.stopAutoRefresh(divId);
 
 			div.classList.add("bx-auto-refreshing");
@@ -68,20 +68,12 @@
 		 * Stop auto-refresh for a div
 		 */
 		stopAutoRefresh: function (divId) {
+			BoxLangAjax.utils.stopAutoRefresh(divId);
 			const div = document.getElementById(divId);
-			if (!div) return;
-
-			const intervals = div.dataset.refreshIntervals;
-			if (intervals) {
-				intervals.split(",").forEach(function (intervalId) {
-					if (intervalId) {
-						clearInterval(parseInt(intervalId));
-					}
-				});
+			if (div) {
+				div.classList.remove("bx-auto-refreshing");
 				delete div.dataset.refreshIntervals;
 			}
-
-			div.classList.remove("bx-auto-refreshing");
 		},
 
 		/**
@@ -131,13 +123,14 @@
 				.catch(function (error) {
 					div.removeChild(overlay);
 
+					var esc = BoxLangAjax.utils.escapeHTML;
 					const errorHtml =
 						options.errorTemplate ||
 						`<div class="bx-source-error">
                             <div class="bx-error-title">Failed to load content</div>
-                            <div class="bx-error-message">${error.message}</div>
+                            <div class="bx-error-message">${esc(error.message)}</div>
                             <div class="bx-error-retry">
-                                <button type="button" onclick="BoxLangAjax.components.div.loadWithOverlay('${divId}', '${url}')">
+                                <button type="button" class="bx-retry-button">
                                     Retry
                                 </button>
                             </div>
@@ -145,6 +138,18 @@
 
 					div.innerHTML = errorHtml;
 					div.classList.add("bx-source-error");
+
+					// Attach retry handler via addEventListener (no inline onclick)
+					var retryBtn = div.querySelector(".bx-retry-button");
+					if (retryBtn) {
+						retryBtn.addEventListener("click", function () {
+							BoxLangAjax.components.div.loadWithOverlay(
+								divId,
+								url,
+								options,
+							);
+						});
+					}
 
 					// Trigger error event
 					const errorEvent = new CustomEvent("div-error", {
@@ -225,7 +230,9 @@
 		document.addEventListener(
 			"mouseenter",
 			function (event) {
-				const div = event.target.closest(".bx-div[data-hover-url]");
+				var target = event.target;
+				if (!target || !target.closest) return;
+				const div = target.closest(".bx-div[data-hover-url]");
 				if (div && !div.dataset.hoverLoaded) {
 					const url = div.dataset.hoverUrl;
 					const delay = parseInt(div.dataset.hoverDelay) || 500;
@@ -338,8 +345,6 @@
 					}
 				});
 			});
-
-		console.log("BoxLang Div AJAX enhancements initialized");
 	}
 
 	// Initialize when DOM is ready
@@ -348,4 +353,23 @@
 	} else {
 		initDivAjax();
 	}
+
+	// -------------------------------------------------------------------
+	// BXUICompat.Div facade
+	// -------------------------------------------------------------------
+	window.BXUICompat = window.BXUICompat || {};
+	window.BXUICompat.Div = {
+		refresh: function (divId, params) {
+			return BoxLangAjax.components.div.refresh(divId, params);
+		},
+		load: function (divId, url) {
+			return BoxLangAjax.components.div.loadWithOverlay(divId, url);
+		},
+		appendContent: function (divId, url) {
+			return BoxLangAjax.components.div.appendContent(divId, url);
+		},
+		stopRefresh: function (divId) {
+			return BoxLangAjax.components.div.stopAutoRefresh(divId);
+		},
+	};
 })();
