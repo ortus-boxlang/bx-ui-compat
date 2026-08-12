@@ -1602,6 +1602,19 @@ $C.setStyle = function (elementId, style, value) {
 	if (el) el.style[style] = value;
 };
 
+$C._sanitizeNavigateUrl = function (url) {
+	try {
+		var parsed = new URL(url, window.location.href);
+		var protocol = parsed.protocol.toLowerCase();
+		if (protocol === "http:" || protocol === "https:") {
+			return parsed.href;
+		}
+	} catch (e) {
+		// fall through
+	}
+	return null;
+};
+
 $C.navigate = function (url, target, onSuccess, onError, method, formId) {
 	if (!url) {
 		$C.handleError(onError, "navigate: url is required", "widget");
@@ -1627,13 +1640,19 @@ $C.navigate = function (url, target, onSuccess, onError, method, formId) {
 		}
 	}
 
-	if (!target) {
-		if (qs) url += (url.includes("?") ? "&" : "?") + qs;
-		window.location.assign(url);
+	if (qs) url += (url.includes("?") ? "&" : "?") + qs;
+	var safeUrl = $C._sanitizeNavigateUrl(url);
+	if (!safeUrl) {
+		$C.handleError(onError, "navigate: invalid or unsafe url", "widget");
 		return;
 	}
 
-	$C.Ajax.replaceHTML(target, url, method, qs || null, onSuccess, onError);
+	if (!target) {
+		window.location.assign(safeUrl);
+		return;
+	}
+
+	$C.Ajax.replaceHTML(target, safeUrl, method, null, onSuccess, onError);
 };
 
 $C.initSelect = function (elementId, valueCol, displayCol, selected) {
