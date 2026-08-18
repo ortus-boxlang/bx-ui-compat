@@ -100,6 +100,33 @@ public class LayoutAreaTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "Center content" );
 	}
 
+	@DisplayName( "It emits authoritative pixel dimensions for border area size" )
+	@Test
+	public void testBorderLayoutSizeEmitsPxDimensions() {
+		runtime.executeSource(
+		    """
+		    bx:layout type="border" height="1000px" {
+		        bx:layoutarea position="top" size="350" title="Search" {
+		            writeOutput("Grid here");
+		        }
+		        bx:layoutarea position="left" size="200" {
+		            writeOutput("Sidebar");
+		        }
+		        bx:layoutarea position="center" {
+		            writeOutput("Center");
+		        }
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// Bare numeric sizes must be normalized to pixel units
+		assertThat( output ).contains( "height: 350px" );
+		assertThat( output ).contains( "width: 200px" );
+	}
+
 	@DisplayName( "It handles accordion layout areas with collapsible options" )
 	@Test
 	public void testAccordionLayoutAreas() {

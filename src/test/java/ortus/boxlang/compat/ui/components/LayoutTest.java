@@ -130,10 +130,10 @@ public class LayoutTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "bx-border-body" );
 		assertThat( output ).contains( "Header" );
 		assertThat( output ).contains( "data-area-id" );
-		// Untitled areas should remain plain positioned divs (backward compat).
-		// Verify that each untitled position is wrapped only in the position class.
-		assertThat( output ).contains( "<div class=\"bx-border-left\">Left sidebar" );
-		assertThat( output ).contains( "<div class=\"bx-border-right\">Right sidebar" );
+		// Untitled areas render as plain positioned divs (backward compat), but
+		// sized areas now carry an authoritative inline dimension.
+		assertThat( output ).contains( "<div class=\"bx-border-left\" style=\"width: 200px\">Left sidebar" );
+		assertThat( output ).contains( "<div class=\"bx-border-right\" style=\"width: 150px\">Right sidebar" );
 		assertThat( output ).contains( "<div class=\"bx-border-bottom\">Footer content" );
 		assertThat( output ).contains( "<div class=\"bx-border-center\">Main content" );
 	}

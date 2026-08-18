@@ -433,6 +433,27 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "color: #666" );
 	}
 
+	@DisplayName( "It preserves CSS units in column header font size (no double px suffix)" )
+	@Test
+	public void testGridColumnHeaderFontSizeWithUnit() {
+		runtime.executeSource(
+		    """
+		    bx:grid name="headerGrid" colHeaderFontSize="10pt" colHeaderFont="Arial" {
+		        bx:gridcolumn name="PrtLglNm" header="Partner Name" width="160";
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// "10pt" must not become "10ptpx"
+		assertThat( output ).contains( "font-size: 10pt" );
+		assertThat( output ).doesNotContain( "10ptpx" );
+		// Bare numeric column width is normalized to pixels
+		assertThat( output ).contains( "width: 160px" );
+	}
+
 	@DisplayName( "It can handle action buttons" )
 	@Test
 	public void testGridActionButtons() {
@@ -624,6 +645,9 @@ public class GridTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "orders" );
 		assertThat( output ).contains( "products" );
 		assertThat( output ).contains( "5200" );
+		// Bare numeric width/height are normalized to pixel units
+		assertThat( output ).contains( "height: 300px" );
+		assertThat( output ).contains( "width: 600px" );
 	}
 
 	@DisplayName( "It resolves cfc: bind prefix to a relative URL with .cfc extension and adds data-bind-params" )

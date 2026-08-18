@@ -104,7 +104,6 @@
 /* Div size constraints for AJAX content */
 .bx-div .bx-ajax-content {
 	max-width: 100%;
-	overflow: hidden;
 }
 
 .bx-div .bx-ajax-content img {

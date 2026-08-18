@@ -319,6 +319,10 @@ class{
 	 * header + content). Areas without a title are emitted as plain positioned
 	 * divs (backward-compatible). When a title is present but collapsible is
 	 * false, the title bar is rendered statically (no toggle, no chevron).
+	 *
+	 * The `size`/`minsize`/`maxsize` attributes are emitted as authoritative
+	 * inline dimensions on the region element so a fixed-size area cannot be
+	 * collapsed by external styles (e.g. oversized content or input padding).
 	 */
 	private function renderBorderAreas( required context, required executionState ){
 		var areas = executionState.areas ?: [];
@@ -328,10 +332,11 @@ class{
 			var titleText = !isNull( area.title ) ? area.title : "";
 			var hasTitle = len( titleText );
 			var isCollapsible = ( area.collapsible ?: true ) == true;
+			var areaStyle = buildBorderAreaStyle( area, position );
 
 			if( !hasTitle ){
 				// Backward-compatible: plain positioned region
-				context.writeToBuffer( "<div class=""bx-border-#position#"">" );
+				context.writeToBuffer( "<div class=""bx-border-#position#""" & areaStyle & ">" );
 				context.writeToBuffer( area.content );
 				context.writeToBuffer( "</div>" );
 				continue;
@@ -344,7 +349,7 @@ class{
 			var titleClass = isCollapsible ? "bx-accordion-header bx-border-title" : "bx-border-title bx-border-title-static";
 			var headerAttrs = isCollapsible ? " data-area-id=""#encodeForHTMLAttribute( area.id ?: '' )#"" data-layout-id=""#encodeForHTMLAttribute( executionState.layoutId ?: '' )#"" data-area-position=""#encodeForHTMLAttribute( position )#""" : "";
 
-			context.writeToBuffer( "<div class=""bx-border-area bx-border-#position##collapsedClass#"">" );
+			context.writeToBuffer( "<div class=""bx-border-area bx-border-#position##collapsedClass#""" & areaStyle & ">" );
 			context.writeToBuffer( "<div class=""#titleClass#""#headerAttrs#>" );
 			// Titles are treated as HTML (parity with CFML cflayoutarea).
 			// The caller is responsible for sanitising untrusted input.
@@ -354,6 +359,53 @@ class{
 			context.writeToBuffer( area.content );
 			context.writeToBuffer( "</div></div>" );
 		}
+	}
+
+	/**
+	 * Normalize a CSS size value: bare numbers are treated as pixels.
+	 * e.g. "350" -> "350px", "200px" -> "200px", "" -> "".
+	 */
+	private function normalizeCssSize( required value ){
+		if( isNull( value ) || !len( value ) ){
+			return "";
+		}
+		if( isNumeric( value ) ){
+			return value & "px";
+		}
+		return value;
+	}
+
+	/**
+	 * Build the inline style attribute for a border layout region from its
+	 * size/minsize/maxsize attributes. Returns an empty string when no
+	 * dimension attributes are set, otherwise a leading ' style="..."'.
+	 */
+	private function buildBorderAreaStyle( required area, required position ){
+		var styles		= [];
+		var isVertical	= [ "top", "bottom" ].containsNoCase( position );
+		var dimension	= isVertical ? "height" : "width";
+		var minDimension	= isVertical ? "min-height" : "min-width";
+		var maxDimension	= isVertical ? "max-height" : "max-width";
+
+		var size = normalizeCssSize( area.size ?: "" );
+		if( len( size ) ){
+			styles.append( dimension & ": " & size );
+		}
+
+		var minsize = normalizeCssSize( area.minsize ?: "" );
+		if( len( minsize ) ){
+			styles.append( minDimension & ": " & minsize );
+		}
+
+		var maxsize = normalizeCssSize( area.maxsize ?: "" );
+		if( len( maxsize ) ){
+			styles.append( maxDimension & ": " & maxsize );
+		}
+
+		if( styles.len() ){
+			return ' style="' & styles.toList( "; " ) & '"';
+		}
+		return "";
 	}
 
 	/**
