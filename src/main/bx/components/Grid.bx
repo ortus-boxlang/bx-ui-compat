@@ -340,11 +340,22 @@ class{
 		// Build inline styles
 		var inlineStyles = [];
 
-		if( !isNull( attributes.height ) && len( attributes.height ) ){
-			inlineStyles.append( "height: #attributes.height#" );
+		// CFML cfgrid height/width are pixel values; normalize bare numbers to
+		// "px" and pass CSS units (e.g. "50%", "10em") through unchanged.
+		var gridHeight = attributes.height ?: "";
+		if( len( gridHeight ) && isNumeric( gridHeight ) ){
+			gridHeight &= "px";
 		}
-		if( !isNull( attributes.width ) && len( attributes.width ) ){
-			inlineStyles.append( "width: #attributes.width#" );
+		var gridWidth = attributes.width ?: "";
+		if( len( gridWidth ) && isNumeric( gridWidth ) ){
+			gridWidth &= "px";
+		}
+
+		if( len( gridHeight ) ){
+			inlineStyles.append( "height: #gridHeight#" );
+		}
+		if( len( gridWidth ) ){
+			inlineStyles.append( "width: #gridWidth#" );
 		}
 		if( !isNull( attributes.bgColor ) && len( attributes.bgColor ) ){
 			inlineStyles.append( "background-color: #attributes.bgColor#" );
@@ -355,8 +366,9 @@ class{
 		if( !isNull( attributes.font ) && len( attributes.font ) ){
 			inlineStyles.append( "font-family: #attributes.font#" );
 		}
-		if( !isNull( attributes.fontSize ) && len( attributes.fontSize ) ){
-			inlineStyles.append( "font-size: #attributes.fontSize#px" );
+		var gridFontSize = normalizeCssSize( attributes.fontSize );
+		if( len( gridFontSize ) ){
+			inlineStyles.append( "font-size: #gridFontSize#" );
 		}
 		if( attributes.bold ){
 			inlineStyles.append( "font-weight: bold" );
@@ -364,8 +376,9 @@ class{
 		if( attributes.italic ){
 			inlineStyles.append( "font-style: italic" );
 		}
-		if( !isNull( attributes.rowHeight ) && len( attributes.rowHeight ) ){
-			inlineStyles.append( "--bx-grid-row-height: #attributes.rowHeight#px" );
+		var gridRowHeight = normalizeCssSize( attributes.rowHeight );
+		if( len( gridRowHeight ) ){
+			inlineStyles.append( "--bx-grid-row-height: #gridRowHeight#" );
 		}
 		if( !isNull( attributes.selectColor ) && len( attributes.selectColor ) ){
 			inlineStyles.append( "--bx-grid-select-color: #attributes.selectColor#" );
@@ -512,8 +525,9 @@ class{
 
 			// Build column header styles
 			var headerStyles = [];
-			if( !isNull( column.width ) && len( column.width ) ){
-				headerStyles.append( "width: #column.width#" );
+			var columnWidth = normalizeCssSize( column.width ?: "" );
+			if( len( columnWidth ) ){
+				headerStyles.append( "width: #columnWidth#" );
 			}
 			if( !isNull( attributes.colHeaderTextColor ) && len( attributes.colHeaderTextColor ) ){
 				headerStyles.append( "color: #attributes.colHeaderTextColor#" );
@@ -521,8 +535,9 @@ class{
 			if( !isNull( attributes.colHeaderFont ) && len( attributes.colHeaderFont ) ){
 				headerStyles.append( "font-family: #attributes.colHeaderFont#" );
 			}
-			if( !isNull( attributes.colHeaderFontSize ) && len( attributes.colHeaderFontSize ) ){
-				headerStyles.append( "font-size: #attributes.colHeaderFontSize#px" );
+			var headerFontSize = normalizeCssSize( attributes.colHeaderFontSize );
+			if( len( headerFontSize ) ){
+				headerStyles.append( "font-size: #headerFontSize#" );
 			}
 			if( attributes.colHeaderBold ){
 				headerStyles.append( "font-weight: bold" );
@@ -688,6 +703,25 @@ class{
 
 		buttonContent &= "</div>";
 		return buttonContent;
+	}
+
+	/**
+	 * Normalize a CSS size value: bare numbers are treated as pixels, while
+	 * values that already carry a CSS unit (pt, em, %, etc.) pass through
+	 * unchanged. This prevents double suffixes like "10ptpx".
+	 */
+	private function normalizeCssSize( required value ){
+		if( isNull( value ) ){
+			return "";
+		}
+		var strValue = toString( value );
+		if( !len( strValue ) ){
+			return "";
+		}
+		if( isNumeric( strValue ) ){
+			return strValue & "px";
+		}
+		return strValue;
 	}
 
 	/**

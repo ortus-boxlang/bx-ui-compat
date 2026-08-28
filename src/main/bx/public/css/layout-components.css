@@ -146,7 +146,7 @@ button.bx-tab-header {
 .bx-accordion-content {
 	padding: 15px;
 	transition: max-height 0.3s ease;
-	overflow: hidden;
+	overflow: auto;
 }
 
 .bx-accordion-panel.collapsed .bx-accordion-content {
@@ -165,28 +165,41 @@ button.bx-tab-header {
 	height: 100%;
 }
 
+/* Sized regions must contain oversized children (e.g. a grid with a large
+ * fixed height) so they do not paint over adjacent regions. */
 .bx-border-top {
 	grid-area: top;
 	border-bottom: 1px solid #ddd;
+	overflow: auto;
+	min-height: 0;
 }
 
 .bx-border-bottom {
 	grid-area: bottom;
 	border-top: 1px solid #ddd;
+	overflow: auto;
+	min-height: 0;
 }
 
 .bx-border-left {
 	grid-area: left;
 	border-right: 1px solid #ddd;
+	overflow: auto;
+	min-width: 0;
 }
 
 .bx-border-right {
 	grid-area: right;
 	border-left: 1px solid #ddd;
+	overflow: auto;
+	min-width: 0;
 }
 
 .bx-border-center {
 	grid-area: center;
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
 }
 
 .bx-border-area {
@@ -219,7 +232,7 @@ button.bx-tab-header {
 .bx-border-area {
 	box-sizing: border-box;
 	min-height: 0;
-	overflow: hidden;
+	overflow: auto;
 }
 
 /* Full-width title bar — spans the layout region, no horizontal padding */

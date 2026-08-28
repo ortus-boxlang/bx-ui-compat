@@ -165,7 +165,6 @@
 	transition:
 		max-height 0.3s ease,
 		opacity 0.3s ease;
-	overflow: hidden;
 }
 
 .bx-pod.bx-collapsible.bx-collapsed .bx-pod-content {

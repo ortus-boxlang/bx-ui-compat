@@ -9,6 +9,8 @@
 	border: 1px solid #ddd;
 	border-radius: 4px;
 	overflow: auto;
+	max-width: 100%;
+	max-height: 100%;
 	font-family:
 		system-ui,
 		-apple-system,
@@ -44,7 +46,7 @@
 }
 
 .bx-grid-header th {
-	padding: 10px 13px;
+	padding: 7px;
 	text-align: left;
 	font-weight: 600;
 	color: #555;
@@ -245,7 +247,6 @@
 /* ===== Collapsible ===== */
 .bx-grid-collapsible > .bx-grid-table {
 	transition: max-height 0.3s ease;
-	overflow: hidden;
 }
 
 /* ===== Disabled state ===== */
