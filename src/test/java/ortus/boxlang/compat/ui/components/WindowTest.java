@@ -517,10 +517,9 @@ public class WindowTest extends BaseIntegrationTest {
 		);
 
 		String output = variables.getAsString( Key.of( "result" ) );
-		// The bind expression {myform:test} should be preserved via \x7B/\x7D encoding
-		assertThat( output ).contains( "test\\x2Dwindow.cfm?test=" );
-		assertThat( output ).contains( "myform" );
-		assertThat( output ).contains( "test" );
+		// The bind expression {myform:test} is passed through encodeForJavaScript
+		// which encodes: {=\x7B, }=\x7D, :=\x3A, -=\x2D, ?=\x3F, ==\x3D
+		assertThat( output ).contains( "\\x7Bmyform\\x3Atest\\x7D" );
 	}
 
 	@DisplayName( "It preserves bind expression with event suffix in source URL" )
