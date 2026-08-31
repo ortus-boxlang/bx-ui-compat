@@ -500,4 +500,74 @@ public class WindowTest extends BaseIntegrationTest {
 		    context
 		) );
 	}
+
+	// -------------------------------------------------------------------------
+	// Bind expression in source URL
+	// -------------------------------------------------------------------------
+
+	@DisplayName( "It preserves bind expressions in the source URL" )
+	@Test
+	public void testSourceWithBindExpression() {
+		runtime.executeSource(
+		    """
+		    bx:window name="bindWin" source="test-window.cfm?test={myform:test}" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		// The bind expression {myform:test} is passed through encodeForJavaScript
+		// which encodes: {=\x7B, }=\x7D, :=\x3A, -=\x2D, ?=\x3F, ==\x3D
+		assertThat( output ).contains( "\\x7Bmyform\\x3Atest\\x7D" );
+	}
+
+	@DisplayName( "It preserves bind expression with event suffix in source URL" )
+	@Test
+	public void testSourceWithBindExpressionAndEvent() {
+		runtime.executeSource(
+		    """
+		    bx:window name="bindEventWin" source="test-window.cfm?text={myform:text1@mousedown}" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "text1" );
+		assertThat( output ).contains( "mousedown" );
+	}
+
+	@DisplayName( "It preserves bind expression with attribute in source URL" )
+	@Test
+	public void testSourceWithBindExpressionAndAttribute() {
+		runtime.executeSource(
+		    """
+		    bx:window name="bindAttrWin" source="test-window.cfm?val={myform:check1.checked@click}" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "check1" );
+		assertThat( output ).contains( ".checked" );
+		assertThat( output ).contains( "@click" );
+	}
+
+	@DisplayName( "It passes bind error handler name to config" )
+	@Test
+	public void testOnBindErrorHandlerName() {
+		runtime.executeSource(
+		    """
+		    bx:window name="errWin" source="test.cfm" onBindError="myErrorHandler" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "onBindError:" );
+		assertThat( output ).contains( "myErrorHandler" );
+	}
 }

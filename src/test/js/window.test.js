@@ -352,5 +352,171 @@ describe("window.js", () => {
 				expect(win._cf_onShow).toBe(fn);
 			});
 		});
+
+		describe("bind expressions", () => {
+			beforeEach(() => {
+				// Set up a form for bind tests
+				document.body.innerHTML = `
+					<form name="myform">
+						<input type="hidden" name="test" value="asfd" />
+						<input name="text1" value="hello" />
+						<input name="text2" value="world" />
+						<input name="check1" type="checkbox" checked />
+						<select name="select1">
+							<option value="a">A</option>
+							<option value="b" selected>B</option>
+						</select>
+					</form>
+				`;
+			});
+
+			it("parseBindTokens extracts simple {form:field} tokens", () => {
+				const tokens = window.BXUICompat.Window._parseBindTokens(
+					"test.cfm?text={myform:test}",
+				);
+				expect(tokens).toHaveLength(1);
+				expect(tokens[0].formId).toBe("myform");
+				expect(tokens[0].fieldName).toBe("test");
+				expect(tokens[0].attr).toBeNull();
+				expect(tokens[0].event).toBeNull();
+			});
+
+			it("parseBindTokens extracts {form:field.attr@event}", () => {
+				const tokens = window.BXUICompat.Window._parseBindTokens(
+					"page.cfm?val={myform:check1.checked@click}",
+				);
+				expect(tokens).toHaveLength(1);
+				expect(tokens[0].formId).toBe("myform");
+				expect(tokens[0].fieldName).toBe("check1");
+				expect(tokens[0].attr).toBe("checked");
+				expect(tokens[0].event).toBe("click");
+			});
+
+			it("parseBindTokens extracts multiple tokens", () => {
+				const tokens = window.BXUICompat.Window._parseBindTokens(
+					"page.cfm?a={myform:text1}&b={myform:text2}",
+				);
+				expect(tokens).toHaveLength(2);
+				expect(tokens[0].fieldName).toBe("text1");
+				expect(tokens[1].fieldName).toBe("text2");
+			});
+
+			it("resolveBindToken resolves a hidden field value", () => {
+				const val = window.BXUICompat.Window._resolveBindToken({
+					formId: "myform",
+					fieldName: "test",
+					attr: null,
+				});
+				expect(val).toBe("asfd");
+			});
+
+			it("resolveBindToken resolves a text input value", () => {
+				const val = window.BXUICompat.Window._resolveBindToken({
+					formId: "myform",
+					fieldName: "text1",
+					attr: null,
+				});
+				expect(val).toBe("hello");
+			});
+
+			it("resolveBindToken resolves checked attribute of checkbox", () => {
+				const val = window.BXUICompat.Window._resolveBindToken({
+					formId: "myform",
+					fieldName: "check1",
+					attr: "checked",
+				});
+				expect(val).toBe("true");
+			});
+
+			it("resolveBindToken resolves a select value", () => {
+				const val = window.BXUICompat.Window._resolveBindToken({
+					formId: "myform",
+					fieldName: "select1",
+					attr: null,
+				});
+				expect(val).toBe("b");
+			});
+
+			it("resolveBindExpressions replaces tokens in URL with encoded values", () => {
+				const result =
+					window.BXUICompat.Window._resolveBindExpressions(
+						"page.cfm?text={myform:test}",
+					);
+				expect(result).toContain("text=asfd");
+			});
+
+			it("resolveBindExpressions replaces multiple tokens", () => {
+				const result =
+					window.BXUICompat.Window._resolveBindExpressions(
+						"page.cfm?a={myform:text1}&b={myform:text2}",
+					);
+				expect(result).toContain("a=hello");
+				expect(result).toContain("b=world");
+			});
+
+			it("resolveBindExpressions encodes special characters", () => {
+				document.querySelector(
+					'input[name="text1"]',
+				).value = "hello world";
+				const result =
+					window.BXUICompat.Window._resolveBindExpressions(
+						"page.cfm?text={myform:text1}",
+					);
+				expect(result).toContain("hello%20world");
+			});
+
+			it("hasBindTokens returns true for URLs with tokens", () => {
+				expect(
+					window.BXUICompat.Window._hasBindTokens(
+						"page.cfm?text={myform:test}",
+					),
+				).toBe(true);
+			});
+
+			it("hasBindTokens returns false for URLs without tokens", () => {
+				expect(
+					window.BXUICompat.Window._hasBindTokens(
+						"page.cfm?text=plain",
+					),
+				).toBe(false);
+			});
+
+			it("creates window with bind source URL and registers listeners", () => {
+				const win = WindowAPI.create(
+					"bindWin",
+					"Bind",
+					"page.cfm?text={myform:test}",
+					{ initshow: true },
+				);
+				// The iframe should use the resolved URL
+				const iframe = win._body.querySelector("iframe");
+				expect(iframe.src).toContain("text=asfd");
+			});
+
+			it("registers event listeners for bind tokens", () => {
+				const win = WindowAPI.create(
+					"listBindWin",
+					"Bind",
+					"page.cfm?text={myform:test}",
+					{ initshow: true, refreshOnShow: true },
+				);
+				// Bind listeners should be wired up
+				expect(win._bindListeners).not.toBeNull();
+				expect(win._bindListeners.length).toBe(1);
+				expect(win._bindListeners[0].eventName).toBe("change");
+			});
+
+			it("cleans up bind listeners on destroy", () => {
+				const win = WindowAPI.create(
+					"cleanupBindWin",
+					"Bind",
+					"page.cfm?text={myform:test}",
+					{ initshow: true },
+				);
+				WindowAPI.destroy("cleanupBindWin");
+				// Listeners should be cleaned up
+				expect(win._bindListeners).toBeNull();
+			});
+		});
 	});
 });

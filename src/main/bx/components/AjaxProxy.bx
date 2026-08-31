@@ -139,96 +139,279 @@ class{
 
 	/**
 	 * Generate JavaScript for bind expression
+	 *
+	 * Adobe spec:
+	 *   bind="cfc:component.method({[form:]ctrl[.attr][@event]})"
+	 *   bind="url:URL?param={[form:]ctrl[.attr][@event]}"
+	 *   bind="javascript:fn({[form:]ctrl[.attr][@event]})"
+	 *
+	 * The request executes each time the specified event (onChange by default)
+	 * of the bound control occurs.  No initial fire on page load.
 	 */
 	private function generateBindCall( required attributes ){
 		var bindExpr = attributes.bind;
 		var onSuccess = attributes.onSuccess;
 		var onError = attributes.onError;
 
-		// Parse bind expression - simple implementation for cfc: expressions
 		if( bindExpr.startsWith( "cfc:" ) ){
-			// Extract CFC and method from bind expression
-			// Format: cfc:component.method(param1,param2)
-			var cfcCall = bindExpr.replace( "cfc:", "" );
-			var methodStart = cfcCall.find( "." );
-			var paramsStart = cfcCall.find( "(" );
-			
-			if( methodStart > 0 && paramsStart > 0 ){
-				var cfcName = cfcCall.substring( 0, methodStart - 1 );
-				var methodName = cfcCall.substring( methodStart, paramsStart - 1 );
-				var params = "";
-				if( paramsStart < cfcCall.len() - 1 ){
-					params = cfcCall.substring( paramsStart, cfcCall.len() - 1 );
-				}
-
-				var script = "
-				// Execute bind expression: #bindExpr#
-				(async function() {
-					try {
-						const formData = new FormData();
-						formData.append('method', '#methodName#');
-						formData.append('cfc', '#cfcName#');
-						";
-
-				// Parse parameters if any
-				if( len( params ) > 0 ){
-					var paramList = params.listToArray( "," );
-					for( var i = 1; i <= paramList.len(); i++ ){
-						var param = trim( paramList[i] );
-						script &= "formData.append('param#i#', '#param#');";
-					}
-				}
-
-				script &= "
-						const response = await fetch('/index.cfm', {
-							method: 'POST',
-							body: formData,
-							headers: {
-								'X-Requested-With': 'XMLHttpRequest'
-							}
-						});
-
-						if (!response.ok) {
-							throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-						}
-
-						const result = await response.text();
-						";
-
-				if( len( onSuccess ) > 0 ){
-					script &= "
-						if (typeof #onSuccess# === 'function') {
-							#onSuccess#(result);
-						}
-					";
-				}
-
-				script &= "
-					} catch (error) {
-						console.error('Bind execution failed:', error);
-						";
-
-				if( len( onError ) > 0 ){
-					script &= "
-						if (typeof #onError# === 'function') {
-							#onError#(error.message || 'Unknown error', error);
-						}
-					";
-				}
-
-				script &= "
-					}
-				})();
-				";
-
-				return script;
-			}
+			return generateCFCBind( bindExpr, onSuccess, onError );
 		}
 
-		// For non-CFC bind expressions, create a generic handler
-		return "
-		// Generic bind handler for: #bindExpr#
-		console.warn('Bind expression not fully supported: #bindExpr#');
+		// Determine prefix and expression body
+		var prefix = "";
+		var exprBody = "";
+		if( bindExpr.startsWith( "url:" ) ){
+			prefix = "url";
+			exprBody = bindExpr.replace( "url:", "" );
+		} else if( bindExpr.startsWith( "javascript:" ) ){
+			prefix = "js";
+			exprBody = bindExpr.replace( "javascript:", "" );
+		} else {
+			return "console.warn('Bind expression not supported: #encodeForJavaScript( bindExpr )#');";
+		}
+
+		// Parse {[form:]control[.attr][@event]} tokens
+		var tokens = parseBindTokens( exprBody );
+		var escapedBody = encodeForJavaScript( exprBody );
+
+		var script = "
+		(function() {
+			function _bxFindEl(id, form) {
+				if (form) { var f = document.forms[form]; if (f) return f.elements[id]; }
+				var el = document.getElementById(id);
+				if (!el) { var nl = document.getElementsByName(id); if (nl.length) el = nl[0]; }
+				return el;
+			}
 		";
+
+		// Emit token data as individual JS variables
+		for( var t = 1; t <= tokens.len(); t++ ){
+			var tok = tokens[t];
+			script &= "var _t#t#={form:'#tok.form#',control:'#tok.control#',attr:'#tok.attr#',event:'#tok.event#'};";
+		}
+
+		var tokenCount = tokens.len();
+
+		if( prefix == "url" ){
+			script &= "
+			function _bxFetch() {
+				var url = '#escapedBody#'.replace(/\{([^}]+)\}/g, function(m, key) {
+					var clean = key.replace(/@[^}]*$/, '');
+					var id = clean.split('.')[0].split(':').pop();
+					var a = clean.indexOf('.') > -1 ? clean.split('.').pop() : 'value';
+					var el = _bxFindEl(id);
+					if (!el) return '';
+					var val;
+					if (el.tagName === 'SELECT' && el.multiple && (!a || a === 'value')) {
+						val = Array.from(el.selectedOptions).map(function(o){ return o.value; }).join(',');
+					} else {
+						val = el[a] || el.getAttribute(a) || '';
+					}
+					return encodeURIComponent(val);
+				});
+				fetch(url, { method: 'GET' })
+					.then(function(r){ if(!r.ok) throw Error(r.status); return r.json(); })
+					.then(function(result){";
+			if( len( onSuccess ) > 0 ){ script &= " if(typeof #onSuccess#==='function') #onSuccess#(result);"; }
+			script &= " })
+					.catch(function(e){ console.error('url bind:', e);";
+			if( len( onError ) > 0 ){ script &= " if(typeof #onError#==='function') #onError#(e.message||'',e);"; }
+			script &= " });
+			}
+			";
+		}
+
+		if( prefix == "js" ){
+			script &= "
+			function _bxEval() {
+				try {
+					var expr = '#escapedBody#'.replace(/\{([^}]+)\}/g, function(m, key) {
+						var clean = key.replace(/@[^}]*$/, '');
+						var id = clean.split('.')[0].split(':').pop();
+						var a = clean.indexOf('.') > -1 ? clean.split('.').pop() : 'value';
+						var el = _bxFindEl(id);
+						if (!el) return '';
+						return el[a] || el.getAttribute(a) || '';
+					});
+					var result = eval(expr);
+					";
+			if( len( onSuccess ) > 0 ){ script &= " if(typeof #onSuccess#==='function') #onSuccess#(result);"; }
+			script &= "
+				} catch(e){ console.error('js bind:', e);";
+			if( len( onError ) > 0 ){ script &= " if(typeof #onError#==='function') #onError#(e.message||'',e);"; }
+			script &= " }
+			}
+			";
+		}
+
+		var execFn = ( prefix == "url" ) ? "_bxFetch" : "_bxEval";
+
+		// Register event listeners on each control
+		// Skip tokens marked with @none — they don't trigger binds
+		for( var i = 1; i <= tokenCount; i++ ){
+			script &= "
+			(function(){
+				var t = _t#i#;
+				if (t.event === 'none') return;
+				var el = _bxFindEl(t.control, t.form);
+				if (el) el.addEventListener(t.event || 'change', #execFn#);
+			})();
+			";
+		}
+
+		script &= "
+		})();
+		";
+
+		return script;
+	}
+
+	/**
+	 * Generate JavaScript for cfc: bind expression.
+	 * Existing code extracted to its own function.
+	 */
+	private function generateCFCBind( required bindExpr, onSuccess = "", onError = "" ){
+		// Format: cfc:component.method(param1,param2)
+		var cfcCall = bindExpr.replace( "cfc:", "" );
+		var methodStart = cfcCall.find( "." );
+		var paramsStart = cfcCall.find( "(" );
+
+		if( methodStart > 0 && paramsStart > 0 ){
+			var cfcName = cfcCall.substring( 0, methodStart - 1 );
+			var methodName = cfcCall.substring( methodStart, paramsStart - 1 );
+
+			// Support dotted paths: services.TestService.initialize()
+			// Find the LAST dot before "(" for method separator
+			var searchPos = paramsStart - 1;
+			var lastDot = 0;
+			while( searchPos > 0 ) {
+				if( cfcCall[ searchPos ] == "." ) { lastDot = searchPos; break; }
+				searchPos--;
+			}
+			if( lastDot > methodStart ) {
+				cfcName = cfcCall.substring( 0, lastDot - 1 );
+				methodName = cfcCall.substring( lastDot + 1, paramsStart - 1 );
+			}
+			var params = "";
+			if( paramsStart < cfcCall.len() - 1 ){
+				params = cfcCall.substring( paramsStart, cfcCall.len() - 1 );
+			}
+
+			var script = "
+			(async function() {
+				try {
+					const formData = new FormData();
+					formData.append('method', '#methodName#');
+					formData.append('cfc', '#cfcName#');
+					";
+
+			if( len( params ) > 0 ){
+				var paramList = params.listToArray( "," );
+				for( var i = 1; i <= paramList.len(); i++ ){
+					var param = trim( paramList[i] );
+					script &= "formData.append('param#i#', '#param#');";
+				}
+			}
+
+			script &= "
+					const response = await fetch('/index.cfm', {
+						method: 'POST',
+						body: formData,
+						headers: {
+							'X-Requested-With': 'XMLHttpRequest'
+						}
+					});
+
+					if (!response.ok) {
+						throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+					}
+
+					const result = await response.text();
+					";
+
+			if( len( onSuccess ) > 0 ){
+				script &= "
+					if (typeof #onSuccess# === 'function') {
+						#onSuccess#(result);
+					}
+				";
+			}
+
+			script &= "
+				} catch (error) {
+					console.error('Bind execution failed:', error);
+					";
+
+			if( len( onError ) > 0 ){
+				script &= "
+					if (typeof #onError# === 'function') {
+						#onError#(error.message || 'Unknown error', error);
+					}
+				";
+			}
+
+			script &= "
+				}
+			})();
+			";
+
+			return script;
+		}
+
+		return "console.warn('Invalid cfc bind: #encodeForJavaScript( bindExpr )#');";
+	}
+
+	/**
+	 * Parse {[form:]control[.attr][@event]} tokens from a string.
+	 * Returns an array of structs.
+	 */
+	private function parseBindTokens( required str ){
+		var tokens = [];
+		var pos = 1;
+		while( pos <= len( str ) ){
+			// Skip escaped braces \{ and \}
+			var braceOpen = find( "{", str, pos );
+			if( braceOpen == 0 ) break;
+			if( braceOpen > 1 && mid( str, braceOpen - 1, 1 ) == "\" ){
+				pos = braceOpen + 1;
+				continue;
+			}
+			var braceClose = find( "}", str, braceOpen + 1 );
+			if( braceClose == 0 ) break;
+			if( braceClose > 1 && mid( str, braceClose - 1, 1 ) == "\" ){
+				pos = braceClose + 1;
+				continue;
+			}
+			var content = mid( str, braceOpen + 1, braceClose - braceOpen - 1 );
+
+			var token = { form: "", control: "", attr: "", event: "" };
+
+			// @event suffix
+			var atPos = find( "@", content );
+			if( atPos > 0 ){
+				token.event = mid( content, atPos + 1, len( content ) - atPos );
+				content = left( content, atPos - 1 );
+			}
+
+			// .attr suffix — only if there's a dot and it's NOT form:control (colon before dot)
+			var colonPos = find( ":", content );
+			var dotPos = find( ".", content );
+			if( dotPos > 0 && ( colonPos == 0 || dotPos > colonPos ) ){
+				token.attr = mid( content, dotPos + 1, len( content ) - dotPos );
+				content = left( content, dotPos - 1 );
+			}
+
+			// formName: prefix
+			if( colonPos > 0 ){
+				token.form = left( content, colonPos - 1 );
+				token.control = mid( content, colonPos + 1, len( content ) - colonPos );
+			} else {
+				token.control = content;
+			}
+
+			tokens.append( token );
+			pos = braceClose + 1;
+		}
+		return tokens;
 	}
 }

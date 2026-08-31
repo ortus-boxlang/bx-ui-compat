@@ -90,6 +90,135 @@ function handleError(messageKey, args = [], throwError = false) {
 }
 
 // ---------------------------------------------------------------------------
+// Bind expression helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Regex that matches a bind-expression token embedded in a URL or string.
+ *
+ * Bind syntax: {formName:fieldName[.attribute][@event]}
+ *
+ * Examples:
+ *   {myform:test}
+ *   {myform:text1}
+ *   {myform:check1.checked@click}
+ *   {myform:text1@mousedown}
+ *
+ * @type {RegExp}
+ */
+const BIND_TOKEN_RE = /\{([^:}]+):([^@}.]+)(?:\.([^@}]+))?(?:@([^}]+))?\}/g;
+
+/**
+ * Parse all bind-expression tokens from a URL or string.
+ *
+ * @param {string} url
+ * @returns {Array<{formId:string, fieldName:string, attr:string|null, event:string|null, raw:string, index:number}>}
+ */
+function parseBindTokens(url) {
+	const tokens = [];
+	let match;
+	while ((match = BIND_TOKEN_RE.exec(url)) !== null) {
+		tokens.push({
+			formId: match[1],
+			fieldName: match[2],
+			attr: match[3] || null,
+			event: match[4] || null,
+			raw: match[0],
+			index: match.index,
+		});
+	}
+	return tokens;
+}
+
+/**
+ * Resolve a single bind token to its current DOM value.
+ *
+ * @param {{formId:string, fieldName:string, attr:string|null}} token
+ * @returns {string}
+ */
+function resolveBindToken(token) {
+	const { formId, fieldName, attr } = token;
+
+	// Try the canonical form (formId is the name attribute of the form)
+	const form = document.forms[formId];
+	if (!form) {
+		console.warn(
+			`[BXUICompat.Window] Bind: form not found: ${formId}`,
+		);
+		return "";
+	}
+
+	const el = form.elements[fieldName];
+	if (!el) {
+		console.warn(
+			`[BXUICompat.Window] Bind: field not found in form "${formId}": ${fieldName}`,
+		);
+		return "";
+	}
+
+	// Resolve the attribute value
+	const resolvedAttr = attr || "value";
+
+	// Handle radio / checkbox
+	if (el.type === "radio" || el.type === "checkbox") {
+		if (resolvedAttr === "checked") {
+			return el.checked ? "true" : "false";
+		}
+		// For radios in a group, find the checked one
+		if (el.type === "radio" && el.name) {
+			const checkedEl = form.querySelector(
+				`input[name="${CSS.escape(el.name)}"]:checked`,
+			);
+			return checkedEl ? checkedEl.value : "";
+		}
+		return el.checked ? el.value : "";
+	}
+
+	// Select elements
+	if (el.tagName === "SELECT") {
+		if (resolvedAttr === "selectedIndex") {
+			return String(el.selectedIndex);
+		}
+		if (el.multiple) {
+			return Array.from(el.selectedOptions)
+				.map((o) => o.value)
+				.join(",");
+		}
+		return el.value;
+	}
+
+	// Standard form controls / hidden inputs
+	const val = el[resolvedAttr];
+	return val !== null && val !== undefined ? String(val) : "";
+}
+
+/**
+ * Replace all bind-expression tokens in a URL with their current DOM values.
+ * Tokens are URL-encoded so they can be safely used as query parameters.
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function resolveBindExpressions(url) {
+	return url.replace(BIND_TOKEN_RE, (match, formId, fieldName, attr, event) => {
+		const token = { formId, fieldName, attr: attr || null };
+		const val = resolveBindToken(token);
+		return encodeURIComponent(val);
+	});
+}
+
+/**
+ * Returns true when the given URL contains one or more bind-expression tokens.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function hasBindTokens(url) {
+	BIND_TOKEN_RE.lastIndex = 0;
+	return BIND_TOKEN_RE.test(url);
+}
+
+// ---------------------------------------------------------------------------
 // Internal state (replacing ColdFusion.objectCache / bindHandlerCache)
 // ---------------------------------------------------------------------------
 
@@ -554,6 +683,11 @@ function createDialogWindow(name, title, url, cfg) {
 				this._cf_dirtyview = false;
 			}
 
+			// Set up bind event listeners on first show
+			if (this._bindListeners === null) {
+				this._setupBindListeners();
+			}
+
 			// Position deferred until first show
 			if (this.tempcenter) {
 				centerDialog();
@@ -582,6 +716,7 @@ function createDialogWindow(name, title, url, cfg) {
 		},
 
 		destroy() {
+			this._cleanupBindListeners();
 			dialog.remove();
 			objectCache.delete(name);
 			objectCache.delete(`${name}-body`);
@@ -607,10 +742,14 @@ function createDialogWindow(name, title, url, cfg) {
 
 		// Load URL into an iframe. When the tag rendered body content and no
 		// source URL was given, the seed content was already transplanted above.
+		// Bind-expression tokens ({form:field}) in the URL are resolved first.
 		_loadContent() {
 			if (!this.url) return;
+
+			// Resolve bind-expression tokens to current DOM values
+			const resolvedUrl = resolveBindExpressions(this.url);
 			const iframe = document.createElement("iframe");
-			iframe.src = this.url;
+			iframe.src = resolvedUrl;
 			iframe.title = title || name;
 			// Once the page loads, sync the header title and share the parent
 			// page's JS context (functions, variables, ColdFusion.* namespace)
@@ -674,6 +813,60 @@ function createDialogWindow(name, title, url, cfg) {
 			});
 			this._body.innerHTML = "";
 			this._body.appendChild(iframe);
+		},
+
+		// ---- bind event handling --------------------------------------------
+		_bindTokens: null,
+		_bindListeners: null,
+
+		/**
+		 * Register form-field event listeners for bind-expression tokens in the URL.
+		 * Each time a bound field fires its event, the iframe content reloads
+		 * with the resolved values.
+		 */
+		_setupBindListeners() {
+			if (!this.url || this._bindListeners) return;
+
+			const tokens = parseBindTokens(this.url);
+			if (tokens.length === 0) {
+				this._bindListeners = [];
+				return;
+			}
+
+			this._bindTokens = tokens;
+			this._bindListeners = [];
+
+			for (const token of tokens) {
+				const form = document.forms[token.formId];
+				if (!form) continue;
+				const el = form.elements[token.fieldName];
+				if (!el) continue;
+
+				// Default event is "change"; override with @event suffix
+				const eventName = token.event || "change";
+
+				const handler = () => {
+					if (this._cf_visible) {
+						this._loadContent();
+					} else if (this._cf_refreshOnShow) {
+						this._cf_dirtyview = true;
+					}
+				};
+
+				el.addEventListener(eventName, handler);
+				this._bindListeners.push({ el, eventName, handler });
+			}
+		},
+
+		/**
+		 * Remove all registered bind event listeners (called from destroy());
+		 */
+		_cleanupBindListeners() {
+			if (!this._bindListeners) return;
+			for (const { el, eventName, handler } of this._bindListeners) {
+				el.removeEventListener(eventName, handler);
+			}
+			this._bindListeners = null;
 		},
 	};
 
@@ -874,6 +1067,12 @@ const WindowAPI = {
 		return cached;
 	},
 };
+
+// Expose internal bind helpers for testing
+WindowAPI._parseBindTokens = parseBindTokens;
+WindowAPI._resolveBindToken = resolveBindToken;
+WindowAPI._resolveBindExpressions = resolveBindExpressions;
+WindowAPI._hasBindTokens = hasBindTokens;
 
 // ---------------------------------------------------------------------------
 // Expose on window.BXUICompat.Window (canonical) — alias via window.ColdFusion
