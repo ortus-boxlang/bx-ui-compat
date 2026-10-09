@@ -12,14 +12,41 @@
 @RequiresBody( false )
 class{
 
-	variables.validCompatTag = [ "button", "chart", "div", "fileupload", "form", "grid", "input-datefield", "layout", "layout-accordion", "layout-border", "layout-tab", "map", "messagebox", "pod", "progressbar", "slider", "textarea", "tooltip", "window"]
-	variables.moduleSupportedTags = [ "div", "grid", "layout", "pod", "progressbar", "tooltip", "window" ];
+	variables.validCompatTag = [ "button", "chart", "div", "fileupload", "form", "grid", "input", "input-datefield", "layout", "layout-accordion", "layout-border", "layout-tab", "map", "messagebox", "pod", "progressbar", "select", "slider", "textarea", "tooltip", "window"]
+	variables.moduleSupportedTags = [ "div", "form", "grid", "input", "layout", "pod", "progressbar", "select", "tooltip", "window" ];
+
+	/**
+	 * Maps a compat tag to the JavaScript assets (without extension) it needs.
+	 * Tags without an entry default to "<tag>.js".
+	 *
+	 * "form", "input" and "select" ship no script of their own - they reuse the
+	 * AJAX binding runtime (ajax-core.js + ajaxproxy.js), so sibling modules
+	 * such as bx-ui-forms can pull everything they need with a single
+	 * <bx:ajaximport tags="form" /> call.
+	 */
+	variables.tagJsFiles = {
+		"form"   : [ "ajaxproxy" ],
+		"input"  : [ "ajaxproxy" ],
+		"select" : [ "ajaxproxy" ]
+	};
+
+	/**
+	 * Maps a compat tag to the CSS assets (without extension) it needs.
+	 * Tags without an entry default to "<tag>.css".
+	 */
+	variables.tagCssFiles = {
+		"form"   : [],
+		"input"  : [],
+		"select" : []
+	};
+
 	/**
 	 * The AjaxImport UI component
 	 *
 	 * <pre>
 	 * <bx:ajaximport tags="div,layout,grid" />
 	 * <bx:ajaximport cssSrc="/custom/css" scriptSrc="/custom/js" />
+	 * <bx:ajaximport tags="form" />
 	 * </pre>
 	 *
 	 * @attribute.tags - string, optional - Comma-delimited list of BoxLang AJAX tags for which to import supporting files
@@ -71,9 +98,10 @@ class{
 		var cssSrc = attributes.cssSrc;
 		var tags = attributes.tags;
 
-		// Core BoxLang AJAX CSS
+		// Core BoxLang AJAX CSS - emitted once per request
 		if( !request.$bxUICompat.importedTags.css.len() ){
 			cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/ajax-core.css"" />" & System.lineSeparator();
+			request.$bxUICompat.importedTags.css.append( "ajax-core" );
 		}
 
 		// Tag-specific CSS
@@ -94,14 +122,15 @@ class{
 					// Skip tags that are not supported by this module or have already been imported
 					continue;
 				}
-				if( tagName == "layout" ){
-					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout.css"" />" & System.lineSeparator();
-					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />" & System.lineSeparator();
-					request.$bxUICompat.importedTags.css.append( "layout" );
-				} else {
-					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#tagName#.css"" />";
-					request.$bxUICompat.importedTags.css.append( tagName );
+				// Resolve the CSS assets for this tag (defaults to "<tagName>.css")
+				var cssFiles = variables.tagCssFiles.keyExists( tagName ) ? variables.tagCssFiles[ tagName ] : [ tagName ];
+				for( var cssFile in cssFiles ){
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/#cssFile#.css"" />" & System.lineSeparator();
 				}
+				if( tagName == "layout" ){
+					cssOutput &= "<link rel=""stylesheet"" type=""text/css"" href=""#cssSrc#/layout-components.css"" />" & System.lineSeparator();
+				}
+				request.$bxUICompat.importedTags.css.append( tagName );
 			}
 		} else {
 			// Import all common AJAX CSS files
@@ -130,9 +159,10 @@ class{
 		var scriptSrc = attributes.scriptSrc;
 		var tags = attributes.tags;
 
-		// Core BoxLang AJAX JavaScript
+		// Core BoxLang AJAX JavaScript - emitted once per request
 		if( !request.$bxUICompat.importedTags.js.len() ){
 			jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/ajax-core.js""></script>" & System.lineSeparator();
+			request.$bxUICompat.importedTags.js.append( "ajax-core" );
 		}
 
 		// Tag-specific JavaScript
@@ -152,7 +182,11 @@ class{
 					// Skip tags that are not supported by this module or have already been imported
 					continue;
 				}
-				jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase(tagName)#.js""></script>" & System.lineSeparator();
+				// Resolve the JavaScript assets for this tag (defaults to "<tagName>.js")
+				var jsFiles = variables.tagJsFiles.keyExists( tagName ) ? variables.tagJsFiles[ tagName ] : [ lcase( tagName ) ];
+				for( var jsFile in jsFiles ){
+					jsOutput &= "<script type=""text/javascript"" src=""#scriptSrc#/#lcase( jsFile )#.js""></script>" & System.lineSeparator();
+				}
 				request.$bxUICompat.importedTags.js.append( tagName );
 			}
 		} else {
