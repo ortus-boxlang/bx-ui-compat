@@ -1057,6 +1057,14 @@ $C.Bind = (function () {
 	}
 
 	function _populateSelect(el, value, params, targetId) {
+		if (typeof value === "string") {
+			try {
+				value = $C.JSON.decode(value);
+			} catch (e) {
+				// Keep as string
+			}
+		}
+
 		var queryType = $U.checkQuery(value);
 		var cached = $C.objectCache[targetId] || {};
 

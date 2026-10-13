@@ -222,6 +222,16 @@
 			return BoxLangAjax.utils
 				.fetchContent(fetchUrl, fetchOptions)
 				.then(function (data) {
+					// Decode JSON string if returnFormat is json (CF endpoints often return text/html Content-Type)
+					if (typeof data === "string") {
+						try {
+							data = window.BXUICompat.JSON
+								? window.BXUICompat.JSON.decode(data)
+								: JSON.parse(data);
+						} catch (e) {
+							// Leave as string if not valid JSON
+						}
+					}
 					if (proxyObj.callbackHandler)
 						proxyObj.callbackHandler(data, context);
 					return data;
