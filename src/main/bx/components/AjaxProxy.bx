@@ -7,7 +7,7 @@
 @BoxComponent( "AjaxProxy" )
 @AllowsBody( false )
 @RequiresBody( false )
-class{
+class extends="BaseUIComponent" {
 
 	/**
 	 * The AjaxProxy UI component
@@ -63,14 +63,6 @@ class{
 
 		// Write the JavaScript to the output buffer
 		context.writeToBuffer( script );
-	}
-
-	/**
-	 * Resolves a component identifier (e.g. "myService", "services.UserService")
-	 * to a web-accessible endpoint URL (/services/UserService.cfc or .bx).
-	 */
-	private function resolveComponentEndpoint( required string cfcPath ){
-		return UIResolveComponentEndpoint( cfcPath );
 	}
 
 	/**

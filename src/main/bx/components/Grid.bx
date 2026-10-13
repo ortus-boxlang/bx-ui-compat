@@ -7,7 +7,7 @@
 @BoxComponent( "Grid" )
 @AllowsBody( true )
 @RequiresBody( false )
-class{
+class extends="BaseUIComponent" {
 
 	/**
 	 * The Grid UI component
@@ -1075,7 +1075,7 @@ class{
 
 		var resolvedUrl = "";
 		try {
-			resolvedUrl = UIResolveComponentEndpoint( dirPath );
+			resolvedUrl = resolveComponentEndpoint( dirPath );
 		} catch ( any e ) {
 			resolvedUrl = dirPath & ".cfc";
 		}

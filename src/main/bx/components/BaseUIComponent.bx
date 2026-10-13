@@ -1,35 +1,21 @@
 /**
- * BoxLang BIF: UIResolveComponentEndpoint
- *
- * Resolves a component identifier (e.g. "myService", "services.UserService")
- * to its web-accessible relative endpoint path (/sub/myService.cfc or /path/Service.bx).
- *
- * Instantiates the class to let BoxLang run its full resolution logic (relative to caller,
- * mappings, Application settings, and web root), then extracts the resolved relative path
- * from the runnable's ResolvedFilePath.
+ * Base UI Component providing shared utilities for UI tags
  */
-@BoxBIF( "UIResolveComponentEndpoint" )
 class {
 
 	/**
-	 * Resolves a component name or dotted path to its web endpoint path.
+	 * Resolves a component identifier (e.g. "myService", "services.UserService")
+	 * to a web-accessible endpoint URL (/services/UserService.cfc or .bx)
+	 * by instantiating the class and retrieving its relative path from getRunnablePath().
 	 *
-	 * @componentPath Dotted or named component identifier
+	 * @cfcPath The dotted or named component identifier
 	 *
 	 * @return Web-accessible relative URL path (e.g. "/sub/myService.cfc" or "/path/Service.bx")
 	 */
-	function invoke() {
-		var cfcPath = arguments[ 1 ] ?: arguments.componentPath ?: "";
+	function resolveComponentEndpoint( required string cfcPath ){
 		var clean = trim( cfcPath );
-
-		if( !len( clean ) ){
-			throw(
-				type = "boxlang.compat.ui.InvalidArgumentException",
-				message = "The componentPath parameter is required for UIResolveComponentEndpoint"
-			);
-		}
-
 		var lookupName = reReplaceNoCase( clean, "\.(cfc|bx)$", "" );
+
 		var instance = null;
 
 		try {
@@ -63,4 +49,5 @@ class {
 			message = "Could not resolve a web endpoint path for component [#clean#]."
 		);
 	}
+
 }

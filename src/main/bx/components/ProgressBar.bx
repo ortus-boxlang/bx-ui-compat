@@ -11,7 +11,7 @@
 @BoxComponent( "ProgressBar" )
 @AllowsBody( false )
 @RequiresBody( false )
-class{
+class extends="BaseUIComponent" {
 
 	/**
 	 * The ProgressBar UI component
@@ -160,13 +160,6 @@ class{
 
 		// Generate JS controller
 		generateProgressBarScript( context, attributes );
-	}
-
-	/**
-	 * Resolves a component identifier to a web-accessible endpoint URL (/foo/bar.cfc or .bx).
-	 */
-	private function resolveComponentEndpoint( required string cfcPath ){
-		return UIResolveComponentEndpoint( cfcPath );
 	}
 
 	/**
