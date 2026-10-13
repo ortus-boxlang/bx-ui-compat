@@ -16,6 +16,12 @@ package ortus.boxlang.compat.ui.components;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +29,18 @@ import ortus.boxlang.compat.ui.BaseIntegrationTest;
 import ortus.boxlang.runtime.scopes.Key;
 
 public class ProgressBarTest extends BaseIntegrationTest {
+
+	@BeforeAll
+	public static void setupProgressBarFixtures() throws IOException {
+		Files.writeString( Paths.get( "./mycfc.cfc" ), "component { function getstatus() { return { status: 0.5, message: 'ok' }; } }" );
+		Files.writeString( Paths.get( "./svc.cfc" ), "component { function check() { return { status: 0.5, message: 'ok' }; } }" );
+	}
+
+	@AfterAll
+	public static void teardownProgressBarFixtures() throws IOException {
+		Files.deleteIfExists( Paths.get( "./mycfc.cfc" ) );
+		Files.deleteIfExists( Paths.get( "./svc.cfc" ) );
+	}
 
 	@DisplayName( "It can create a duration-based progress bar" )
 	@Test

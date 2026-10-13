@@ -163,6 +163,48 @@ class{
 	}
 
 	/**
+	 * Resolves a component identifier to a web-accessible endpoint URL (/foo/bar.cfc or .bx)
+	 * by instantiating the class and retrieving its relative path from getRunnablePath().
+	 */
+	private function resolveComponentEndpoint( required string cfcPath ){
+		var clean = trim( cfcPath );
+		var lookupName = reReplaceNoCase( clean, "\.(cfc|bx)$", "" );
+
+		var instance = null;
+
+		try {
+			instance = new "#lookupName#"();
+		} catch ( any e ) {
+			throw(
+				type = "boxlang.compat.ui.ClassNotFoundException",
+				message = "Could not locate component [#clean#]: " & e.message
+			);
+		}
+
+		try {
+			var resolvedPath = instance.$bx.invokeTargetMethod( getBoxContext(), "getRunnablePath", [] );
+			if ( !isNull( resolvedPath ) && len( resolvedPath.relativePath() ) ) {
+				var rel = replace( resolvedPath.relativePath(), "\", "/", "all" );
+				return rel.startsWith( "/" ) ? rel : "/" & rel;
+			}
+		} catch ( any e ) {
+			// Fall back to meta
+		}
+
+		var meta = getMetaData( instance );
+		if ( isStruct( meta ) && structKeyExists( meta, "name" ) && structKeyExists( meta, "path" ) && len( meta.path ) ) {
+			var ext = listLast( meta.path, "." );
+			var endpoint = "/" & replace( meta.name, ".", "/", "all" ) & "." & ext;
+			return replace( endpoint, "//", "/", "all" );
+		}
+
+		throw(
+			type = "boxlang.compat.ui.ClassNotFoundException",
+			message = "Could not resolve a web endpoint path for component [#clean#]."
+		);
+	}
+
+	/**
 	 * Generate the JavaScript that wires the progress bar to the ColdFusion.ProgressBar API.
 	 */
 	private function generateProgressBarScript( required context, required attributes ){
@@ -241,13 +283,7 @@ class{
 					cfcMethod = mid( cfcExpr, dotPos + 1, parenPos - dotPos - 1 );
 				}
 
-				var cfcUrl = "/" & replace( cfcPath, ".", "/", "all" );
-				var bxFile = expandPath( cfcUrl & ".bx" );
-				if( len( bxFile ) && fileExists( bxFile ) ){
-					cfcUrl &= ".bx";
-				} else {
-					cfcUrl &= ".cfc";
-				}
+				var cfcUrl = resolveComponentEndpoint( cfcPath );
 
 				script &= "state._fetchProgress = function(){";
 				script &= "  var formData = new FormData();";

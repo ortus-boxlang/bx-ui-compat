@@ -15,14 +15,67 @@
 package ortus.boxlang.compat.ui.components;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import ortus.boxlang.compat.ui.BaseIntegrationTest;
 import ortus.boxlang.runtime.scopes.Key;
+import ortus.boxlang.runtime.types.exceptions.CustomException;
 
 public class AjaxProxyTest extends BaseIntegrationTest {
+
+	private static final Path FIXTURE_DIR = Paths.get( "./src_test_fixtures_proxy" );
+
+	@BeforeAll
+	public static void setupFixtures() throws IOException {
+		Files.createDirectories( Paths.get( "./myapp/components" ) );
+		Files.writeString( Paths.get( "./myapp/components/UserService.cfc" ), "component { function getData() { return 1; } }" );
+
+		Files.createDirectories( Paths.get( "./services" ) );
+		Files.writeString( Paths.get( "./services/DataService.cfc" ), "component { function getData() { return 1; } }" );
+		Files.writeString( Paths.get( "./services/TestService.cfc" ), "component { function initialize() { return true; } }" );
+
+		Files.writeString( Paths.get( "./mycomponent.cfc" ), "component { function getData() { return 1; } }" );
+		Files.writeString( Paths.get( "./userservice.cfc" ), "component { function getUsers() { return []; } }" );
+
+		Files.createDirectories( Paths.get( "./test" ) );
+		Files.writeString( Paths.get( "./test/Service.cfc" ), "component { function getData() { return 1; } }" );
+
+		Files.writeString( Paths.get( "./BoxSample.bx" ), "class { function getData() { return 1; } }" );
+	}
+
+	@AfterAll
+	public static void teardownFixtures() throws IOException {
+		deleteIfExists( Paths.get( "./myapp" ) );
+		deleteIfExists( Paths.get( "./services" ) );
+		deleteIfExists( Paths.get( "./test" ) );
+		Files.deleteIfExists( Paths.get( "./mycomponent.cfc" ) );
+		Files.deleteIfExists( Paths.get( "./userservice.cfc" ) );
+		Files.deleteIfExists( Paths.get( "./BoxSample.bx" ) );
+	}
+
+	private static void deleteIfExists( Path path ) throws IOException {
+		if ( Files.exists( path ) ) {
+			Files.walk( path )
+			    .sorted( Comparator.reverseOrder() )
+			    .forEach( p -> {
+				    try {
+					    Files.delete( p );
+				    } catch ( IOException ignored ) {
+				    }
+			    } );
+		}
+	}
 
 	@DisplayName( "It can create a CFC proxy with default class name" )
 	@Test
@@ -175,6 +228,36 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "'X-Requested-With': 'XMLHttpRequest'" );
 		assertThat( output ).contains( "if (!response.ok)" );
 		assertThat( output ).contains( "HTTP ' + response.status + ': ' + response.statusText" );
+	}
+
+	@DisplayName( "It detects BoxLang .bx classes and uses .bx endpoint" )
+	@Test
+	public void testBoxLangClassResolution() {
+		runtime.executeSource(
+		    """
+		    bx:ajaxproxy cfc="BoxSample" {
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "this.cfcPath = '/BoxSample.bx'" );
+	}
+
+	@DisplayName( "It throws an error when component cannot be located" )
+	@Test
+	public void testThrowsWhenComponentNotFound() {
+		assertThrows( CustomException.class, () -> {
+			runtime.executeSource(
+			    """
+			    bx:ajaxproxy cfc="non.existent.Component" {
+			    }
+			    """,
+			    context
+			);
+		} );
 	}
 
 	// -------------------------------------------------------------------------
