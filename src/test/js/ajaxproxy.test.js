@@ -113,24 +113,6 @@ describe("ajaxproxy.js", () => {
 			});
 		});
 
-		describe("resolveUrl", () => {
-			it("resolves dotted packages to .cfc paths with leading slash", () => {
-				expect(proxy.resolveUrl("services.UserService")).toBe(
-					"/services/UserService.cfc",
-				);
-				expect(proxy.resolveUrl("myService")).toBe("/myService.cfc");
-			});
-
-			it("preserves paths ending in .cfc or .bx", () => {
-				expect(proxy.resolveUrl("/custom/path.cfc")).toBe(
-					"/custom/path.cfc",
-				);
-				expect(proxy.resolveUrl("custom/path.bx")).toBe(
-					"/custom/path.bx",
-				);
-			});
-		});
-
 		describe("getProxy / listProxies / removeProxy", () => {
 			it("getProxy returns a registered proxy", () => {
 				proxy.createCFCProxy("com.test.X", "XProxy");

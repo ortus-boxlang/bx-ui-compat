@@ -1,0 +1,66 @@
+/**
+ * BoxLang BIF: UIResolveComponentEndpoint
+ *
+ * Resolves a component identifier (e.g. "myService", "services.UserService")
+ * to its web-accessible relative endpoint path (/sub/myService.cfc or /path/Service.bx).
+ *
+ * Instantiates the class to let BoxLang run its full resolution logic (relative to caller,
+ * mappings, Application settings, and web root), then extracts the resolved relative path
+ * from the runnable's ResolvedFilePath.
+ */
+@BoxBIF( "UIResolveComponentEndpoint" )
+class {
+
+	/**
+	 * Resolves a component name or dotted path to its web endpoint path.
+	 *
+	 * @componentPath Dotted or named component identifier
+	 *
+	 * @return Web-accessible relative URL path (e.g. "/sub/myService.cfc" or "/path/Service.bx")
+	 */
+	function invoke() {
+		var cfcPath = arguments[ 1 ] ?: arguments.componentPath ?: "";
+		var clean = trim( cfcPath );
+
+		if( !len( clean ) ){
+			throw(
+				type = "boxlang.compat.ui.InvalidArgumentException",
+				message = "The componentPath parameter is required for UIResolveComponentEndpoint"
+			);
+		}
+
+		var lookupName = reReplaceNoCase( clean, "\.(cfc|bx)$", "" );
+		var instance = null;
+
+		try {
+			instance = new "#lookupName#"();
+		} catch ( any e ) {
+			throw(
+				type = "boxlang.compat.ui.ClassNotFoundException",
+				message = "Could not locate component [#clean#]: " & e.message
+			);
+		}
+
+		try {
+			var resolvedPath = instance.$bx.invokeTargetMethod( getBoxContext(), "getRunnablePath", [] );
+			if ( !isNull( resolvedPath ) && len( resolvedPath.relativePath() ) ) {
+				var rel = replace( resolvedPath.relativePath(), "\", "/", "all" );
+				return rel.startsWith( "/" ) ? rel : "/" & rel;
+			}
+		} catch ( any e ) {
+			// Fall back to meta
+		}
+
+		var meta = getMetaData( instance );
+		if ( isStruct( meta ) && structKeyExists( meta, "name" ) && structKeyExists( meta, "path" ) && len( meta.path ) ) {
+			var ext = listLast( meta.path, "." );
+			var endpoint = "/" & replace( meta.name, ".", "/", "all" ) & "." & ext;
+			return replace( endpoint, "//", "/", "all" );
+		}
+
+		throw(
+			type = "boxlang.compat.ui.ClassNotFoundException",
+			message = "Could not resolve a web endpoint path for component [#clean#]."
+		);
+	}
+}

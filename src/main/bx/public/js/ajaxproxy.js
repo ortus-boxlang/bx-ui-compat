@@ -12,35 +12,18 @@
 		return;
 	}
 
-	// Helper: normalize component path into a remote URL endpoint (/foo/bar.cfc or /foo/bar.bx)
-	function resolveComponentUrl(cfcPath) {
-		if (!cfcPath) return "/index.cfm";
-		var clean = String(cfcPath).trim();
-		// If already ends in .cfc or .bx, just ensure leading slash
-		if (/\.(cfc|bx)$/i.test(clean)) {
-			return clean.charAt(0) === "/" ? clean : "/" + clean;
-		}
-		// Convert dotted package to path: foo.bar.baz -> /foo/bar/baz.cfc
-		clean = clean.replace(/\./g, "/");
-		if (clean.charAt(0) !== "/") {
-			clean = "/" + clean;
-		}
-		return clean + ".cfc";
-	}
-
 	// AJAX Proxy utilities
 	BoxLangAjax.components.ajaxproxy = {
-		/**
-		 * Resolve component path or URL
-		 */
-		resolveUrl: resolveComponentUrl,
-
 		/**
 		 * Create a dynamic proxy for a CFC
 		 */
 		createCFCProxy: function (cfcPath, jsClassName = null) {
 			if (!jsClassName) {
-				jsClassName = cfcPath.split(".").pop();
+				// Derive class name from dotted path (com.example.OrderService) or file path (/path/OrderService.cfc)
+				const base = cfcPath.split("/").pop();
+				jsClassName = base.includes(".") && !/\.(cfc|bx)$/i.test(base)
+					? base.split(".").pop()
+					: base.replace(/\.(cfc|bx)$/i, "");
 			}
 
 			// Don't create if already exists
@@ -51,7 +34,7 @@
 
 			class CFCProxy {
 				constructor() {
-					this.cfcPath = resolveComponentUrl(cfcPath);
+					this.cfcPath = cfcPath;
 					this.timeout = 30000;
 					this.retryAttempts = 3;
 				}
@@ -191,7 +174,7 @@
 		 * Invoke a method on a proxy object.
 		 */
 		invoke: function (proxyObj, methodName, token, args, context) {
-			var targetUrl = resolveComponentUrl(proxyObj.cfcPath);
+			var targetUrl = proxyObj.cfcPath;
 			var httpMethod = (proxyObj.httpMethod || "POST").toUpperCase();
 
 			var params = "method=" + encodeURIComponent(methodName) + "&returnFormat=json";

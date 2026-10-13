@@ -1073,8 +1073,12 @@ class{
 		// If the path already contains slashes (e.g. component/PartnerCRUD), leave as-is
 		dirPath = dirPath.replace( ".", "/", "all" );
 
-		// Build the URL
-		var resolvedUrl = dirPath & ".cfc";
+		var resolvedUrl = "";
+		try {
+			resolvedUrl = UIResolveComponentEndpoint( dirPath );
+		} catch ( any e ) {
+			resolvedUrl = dirPath & ".cfc";
+		}
 		if( len( methodName ) ){
 			resolvedUrl &= "?method=" & methodName & "&returnFormat=json";
 		}
