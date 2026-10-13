@@ -186,7 +186,7 @@ BoxLangAjax.utils.fetchContent = async function (url, options = {}) {
 					setTimeout(
 						resolve,
 						BoxLangAjax.config.retryDelay *
-							Math.pow(2, attempt - 1),
+						Math.pow(2, attempt - 1),
 					),
 				);
 			}
@@ -271,17 +271,17 @@ BoxLangAjax.utils.loadIntoContainer = function (
 			const errorTemplate =
 				options.errorTemplate ||
 				'<div class="bx-source-error">' +
-					'<div class="bx-error-title">Error loading content</div>' +
-					'<div class="bx-error-message">' +
-					esc(error.message) +
-					"</div>" +
-					'<div class="bx-error-retry">' +
-					'<button type="button" class="bx-retry-button" data-retry-container="' +
-					esc(containerId) +
-					'" data-retry-url="' +
-					esc(url) +
-					'">' +
-					"Retry</button></div></div>";
+				'<div class="bx-error-title">Error loading content</div>' +
+				'<div class="bx-error-message">' +
+				esc(error.message) +
+				"</div>" +
+				'<div class="bx-error-retry">' +
+				'<button type="button" class="bx-retry-button" data-retry-container="' +
+				esc(containerId) +
+				'" data-retry-url="' +
+				esc(url) +
+				'">' +
+				"Retry</button></div></div>";
 
 			container.innerHTML = errorTemplate;
 			container.classList.remove("bx-loading");
@@ -1057,6 +1057,14 @@ $C.Bind = (function () {
 	}
 
 	function _populateSelect(el, value, params, targetId) {
+		if (typeof value === "string") {
+			try {
+				value = $C.JSON.decode(value);
+			} catch (e) {
+				// Keep as string
+			}
+		}
+
 		var queryType = $U.checkQuery(value);
 		var cached = $C.objectCache[targetId] || {};
 
@@ -1079,13 +1087,21 @@ $C.Bind = (function () {
 		}
 
 		if (queryType === "col") {
-			var vals = value.DATA[cached.valueCol];
-			var disp = value.DATA[cached.displayCol];
+			// CF parity: when no value/display columns were registered (e.g. a
+			// plain <cfselect bind="cfc:...">), assume the query's first column
+			// is the option value and the second is the option display.
+			var valueCol = cached.valueCol || _queryColumnNames(value)[0];
+			var displayCol =
+				cached.displayCol ||
+				_queryColumnNames(value)[1] ||
+				_queryColumnNames(value)[0];
+			var vals = value.DATA[valueCol];
+			var disp = value.DATA[displayCol];
 			if (!vals || !disp) {
 				$C.handleError(
 					null,
 					"Bind.assignValue: missing valueCol/displayCol for select: " +
-						targetId,
+					targetId,
 					"bind",
 				);
 				return;
@@ -1109,11 +1125,14 @@ $C.Bind = (function () {
 				if (col === cached.valueCol) vIdx = i;
 				if (col === cached.displayCol) dIdx = i;
 			});
-			if (vIdx === -1 || dIdx === -1) {
+			// CF parity: default to the first two columns when none are registered.
+			if (vIdx === -1) vIdx = 0;
+			if (dIdx === -1) dIdx = value.COLUMNS.length > 1 ? 1 : 0;
+			if (!value.COLUMNS.length) {
 				$C.handleError(
 					null,
 					"Bind.assignValue: invalid valueCol/displayCol for select: " +
-						targetId,
+					targetId,
 					"bind",
 				);
 				return;
@@ -1128,6 +1147,16 @@ $C.Bind = (function () {
 					opt.selected = true;
 			});
 		}
+	}
+
+	/**
+	 * Return the ordered column names of a CF query wire object.
+	 */
+	function _queryColumnNames(value) {
+		if (value.COLUMNS && value.COLUMNS.length) {
+			return value.COLUMNS.slice();
+		}
+		return Object.keys(value.DATA || {});
 	}
 
 	function _evaluateBindTemplate(
@@ -1371,6 +1400,399 @@ $C.Bind = (function () {
 		);
 	}
 
+	// -----------------------------------------------------------------------
+	// CF-style `bind` attribute support (auto-wiring)
+	//
+	// Implements the Adobe bind syntax documented on AjaxProxy.bx:
+	//   bind="cfc:component.method({[form:]ctrl[.attr][@event]})"
+	//   bind="url:URL?param={[form:]ctrl[.attr][@event]}"
+	//   bind="javascript:fn({[form:]ctrl[.attr][@event]})"
+	// Any other value is treated as a local bind.
+	//
+	// This lets plain HTML emitted by sibling modules (e.g. bx-ui-forms
+	// <cfselect bind="cfc:...">) be wired up with no server-side glue, and
+	// populates ColdFusion.bindHandlerCache so manual triggers such as
+	// onfocus="ColdFusion.bindHandlerCache['ctrl'].call()" keep working.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * CF-style truthy test for boolean attributes ("true", "yes", "1", "on").
+	 */
+	function _isTruthy(val) {
+		if (val === true) {
+			return true;
+		}
+		if (val === null || val === undefined) {
+			return false;
+		}
+		return ["true", "yes", "1", "on"].indexOf(
+			String(val).toLowerCase().trim(),
+		) !== -1;
+	}
+
+	/**
+	 * Parse a bind token body of the form `[form:]control[.attr][@event]`
+	 * into its individual parts.
+	 */
+	function _parseBindToken(content) {
+		var token = { form: "", control: "", attr: "", event: "" };
+
+		// @event suffix
+		var atPos = content.indexOf("@");
+		if (atPos !== -1) {
+			token.event = content.slice(atPos + 1);
+			content = content.slice(0, atPos);
+		}
+
+		// .attr suffix - only when the dot comes after any form: prefix
+		var colonPos = content.indexOf(":");
+		var dotPos = content.indexOf(".");
+		if (dotPos !== -1 && (colonPos === -1 || dotPos > colonPos)) {
+			token.attr = content.slice(dotPos + 1);
+			content = content.slice(0, dotPos);
+		}
+
+		// form: prefix
+		if (colonPos !== -1) {
+			token.form = content.slice(0, colonPos);
+			token.control = content.slice(colonPos + 1);
+		} else {
+			token.control = content;
+		}
+
+		return token;
+	}
+
+	/**
+	 * Split an expression into literal strings and `{...}` reference tokens,
+	 * preserving their original order.
+	 */
+	function _splitBindParts(text) {
+		var parts = [];
+		var re = /\{([^}]*)\}/g;
+		var match;
+		var last = 0;
+
+		while ((match = re.exec(text)) !== null) {
+			if (match.index > last) {
+				parts.push({ literal: text.slice(last, match.index) });
+			}
+			parts.push({ token: _parseBindToken(match[1]) });
+			last = match.index + match[0].length;
+		}
+
+		if (last < text.length) {
+			parts.push({ literal: text.slice(last) });
+		}
+
+		return parts;
+	}
+
+	/**
+	 * Keep only argument parts: reference tokens plus "meaningful" literals.
+	 * Pure separators (whitespace and commas) are dropped so positional
+	 * arguments line up with the handler contract.
+	 */
+	function _argumentParts(parts) {
+		return parts.filter(function (part) {
+			if (part.token) {
+				return true;
+			}
+			return (
+				typeof part.literal === "string" &&
+				part.literal.replace(/[\s,]/g, "") !== ""
+			);
+		});
+	}
+
+	/**
+	 * Resolve a bind token to its live DOM element, honouring the optional
+	 * `form:` prefix. Returns null when the control cannot be found.
+	 */
+	function _resolveBindElement(token) {
+		var el = null;
+
+		if (token.form && document.forms[token.form]) {
+			el = document.forms[token.form].elements[token.control];
+		}
+
+		if (!el) {
+			el = $D.getElement(token.control, token.form || null);
+		}
+
+		if (Array.isArray(el)) {
+			el = el.length ? el[0] : null;
+		}
+
+		return el || null;
+	}
+
+	/**
+	 * Normalise a reference token into the `[id, formId, attr]` tuple the
+	 * bind handlers expect.
+	 */
+	function _bindTokenRef(token, fallbackForm) {
+		return [
+			token.control,
+			token.form || fallbackForm || null,
+			token.attr || "value",
+		];
+	}
+
+	/**
+	 * Parse a CF `bind` attribute value into a normalised descriptor.
+	 *
+	 * @returns {{type: string, raw: string, body: string, parts: Array,
+	 *            argParts: Array|null, cfc: string, cfcFunction: string,
+	 *            fnName: string}}
+	 */
+	function parseBindExpression(raw) {
+		raw = String(raw == null ? "" : raw).trim();
+
+		var type = "local";
+		var body = raw;
+		var prefix = /^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*([\s\S]*)$/.exec(raw);
+
+		if (
+			prefix &&
+			["cfc", "url", "javascript"].indexOf(prefix[1].toLowerCase()) !== -1
+		) {
+			type = prefix[1].toLowerCase();
+			body = prefix[2];
+		}
+
+		var parsed = { type: type, raw: raw, body: body, parts: [], argParts: null };
+
+		if (type === "cfc" || type === "javascript") {
+			var open = body.indexOf("(");
+			var close = body.lastIndexOf(")");
+			var callTarget = (open === -1 ? body : body.slice(0, open)).trim();
+			var argText =
+				open === -1 || close < open ? "" : body.slice(open + 1, close);
+
+			parsed.argParts = _splitBindParts(argText);
+
+			if (type === "cfc") {
+				var dot = callTarget.lastIndexOf(".");
+				parsed.cfc = dot === -1 ? callTarget : callTarget.slice(0, dot);
+				parsed.cfcFunction = dot === -1 ? "" : callTarget.slice(dot + 1);
+			} else {
+				parsed.fnName = callTarget;
+			}
+		} else {
+			parsed.parts = _splitBindParts(body);
+		}
+
+		return parsed;
+	}
+
+	/**
+	 * Stable wrapper for the CFC bind handler. The real implementation is
+	 * installed by ajaxproxy.js *after* ajax-core.js loads, so resolve it
+	 * lazily to keep script load order irrelevant.
+	 */
+	function cfcBindHandlerProxy(event, params) {
+		var fn = $C.Bind && $C.Bind.cfcBindHandler;
+		if (typeof fn === "function") {
+			fn.call(null, event, params);
+			return;
+		}
+		$C.handleError(
+			params.errorHandler,
+			"Bind: CFC bind handler unavailable - load ajaxproxy.js " +
+			'(bx:ajaximport tags="form")',
+			"bind",
+		);
+	}
+	cfcBindHandlerProxy._cf_bindhandler = true;
+
+	/**
+	 * Wire a single element that carries a CF-style `bind` attribute.
+	 *
+	 * Side effects:
+	 *  - defaults the element's `id` to its `name` (CF behaviour) so the bind
+	 *    target is addressable and ColdFusion.bindHandlerCache['<name>'] works
+	 *  - registers listeners on every control referenced by the bind expression
+	 *  - populates $C.bindHandlerCache[target]
+	 *  - executes the bind immediately when `bindonload` is truthy
+	 *
+	 * @param el The element carrying the `bind` attribute
+	 * @param options Optional `{ bindToAttr, force }`
+	 * @returns {boolean} true when the element has a usable bind
+	 */
+	function bindElement(el, options) {
+		options = options || {};
+
+		if (!el || typeof el.getAttribute !== "function") {
+			return false;
+		}
+
+		var raw = el.getAttribute("bind");
+		if (!raw || !String(raw).trim()) {
+			return false;
+		}
+
+		// CF defaults a control's id to its name so binds are addressable both
+		// via getElementById() and ColdFusion.bindHandlerCache['<name>'].
+		if (!el.id && el.name) {
+			el.id = el.name;
+		}
+
+		if (el._cf_bind_registered && !options.force) {
+			return true;
+		}
+		el._cf_bind_registered = true;
+
+		var parsed = parseBindExpression(raw);
+		var formId = (el.form && (el.form.id || el.form.name)) || null;
+		var targetId = el.id || el.name;
+
+		var params = {
+			bindTo: targetId,
+			bindToAttr:
+				el.getAttribute("bindattribute") || options.bindToAttr || "value",
+			errorHandler: window[el.getAttribute("onbinderror")] || null,
+			callback: window[el.getAttribute("onbindsuccess")] || null,
+		};
+
+		var handler = localBindHandler;
+		var sourceTokens = [];
+
+		(parsed.parts || []).forEach(function (part) {
+			if (part.token) {
+				sourceTokens.push(part.token);
+			}
+		});
+
+		if (parsed.type === "cfc") {
+			var cfcArgs = _argumentParts(parsed.argParts || []);
+
+			params.cfc = parsed.cfc;
+			params.cfcFunction = parsed.cfcFunction;
+			params.bindExpr = cfcArgs.map(function (part, index) {
+				if (part.token) {
+					return [
+						part.token.control,
+						part.token.control,
+						part.token.form || formId,
+						part.token.attr || "value",
+					];
+				}
+				// Literal CFC arguments are passed positionally and cannot be
+				// matched to declared argument names, so use a stable key.
+				return ["arg" + (index + 1), part.literal];
+			});
+
+			cfcArgs.forEach(function (part) {
+				if (part.token) {
+					sourceTokens.push(part.token);
+				}
+			});
+
+			handler = cfcBindHandlerProxy;
+		} else if (parsed.type === "url") {
+			params.bindExpr = parsed.parts.map(function (part) {
+				return part.token ? _bindTokenRef(part.token, formId) : part.literal;
+			});
+			handler = urlBindHandler;
+		} else if (parsed.type === "javascript") {
+			var jsArgs = _argumentParts(parsed.argParts || []);
+
+			params.bindExpr = jsArgs.map(function (part) {
+				return part.token ? _bindTokenRef(part.token, formId) : part.literal;
+			});
+			params.callFunction =
+				typeof window[parsed.fnName] === "function"
+					? window[parsed.fnName]
+					: null;
+
+			jsArgs.forEach(function (part) {
+				if (part.token) {
+					sourceTokens.push(part.token);
+				}
+			});
+
+			if (!params.callFunction) {
+				$C.handleError(
+					params.errorHandler,
+					"Bind: JavaScript function not found: " + parsed.fnName,
+					"bind",
+				);
+				return true;
+			}
+
+			handler = jsBindHandler;
+		} else {
+			params.bindExpr = parsed.parts.map(function (part) {
+				return part.token ? _bindTokenRef(part.token, formId) : part.literal;
+			});
+			handler = localBindHandler;
+		}
+
+		// Register the source controls that trigger this bind
+		var bindings = [];
+		var seen = {};
+
+		sourceTokens.forEach(function (token) {
+			var sourceEl = _resolveBindElement(token);
+
+			if (!sourceEl) {
+				$L.warn(
+					"Bind: source control not found: " + token.control,
+					"bind",
+				);
+				return;
+			}
+
+			if (!sourceEl.id && sourceEl.name) {
+				sourceEl.id = sourceEl.name;
+			}
+
+			var event = token.event || "change";
+			var key = (sourceEl.id || sourceEl.name) + "|" + event;
+			if (seen[key]) {
+				return;
+			}
+			seen[key] = true;
+			bindings.push([sourceEl.id || sourceEl.name, token.form || null, event]);
+		});
+
+		register(bindings, params, handler, _isTruthy(el.getAttribute("bindonload")));
+
+		return true;
+	}
+
+	/**
+	 * Find and wire every element carrying a `bind` attribute beneath `root`.
+	 * Safe to call again after AJAX content swaps - already-wired elements are
+	 * skipped.
+	 *
+	 * @param root Optional root node (defaults to `document`)
+	 * @returns {number} the number of bound elements found
+	 */
+	function scan(root) {
+		root = root || document;
+
+		if (!root || typeof root.querySelectorAll !== "function") {
+			return 0;
+		}
+
+		var count = 0;
+
+		if (bindElement(root)) {
+			count++;
+		}
+
+		var els = root.querySelectorAll("[bind]");
+		for (var i = 0; i < els.length; i++) {
+			if (bindElement(els[i])) {
+				count++;
+			}
+		}
+
+		return count;
+	}
+
 	return {
 		register: register,
 		assignValue: assignValue,
@@ -1383,6 +1805,9 @@ $C.Bind = (function () {
 		unregisterGridDependent: unregisterGridDependent,
 		resolveGridColumnValue: resolveGridColumnValue,
 		resolveBindExpression: resolveBindExpression,
+		parseBindExpression: parseBindExpression,
+		bindElement: bindElement,
+		scan: scan,
 		_gridDependents: _gridDependents,
 	};
 })();
@@ -1453,7 +1878,7 @@ $C.ProgressBar = {
 // 3i. Root-level public helpers
 // ---------------------------------------------------------------------------
 
-$C.empty = function () {};
+$C.empty = function () { };
 
 $C.trim = function (str) {
 	return str == null ? "" : String(str).trim();
@@ -1487,8 +1912,8 @@ $C.handleError = function (
 ) {
 	var msg = args
 		? args.reduce(function (m, a, i) {
-				return m.replace("{" + i + "}", a);
-			}, message)
+			return m.replace("{" + i + "}", a);
+		}, message)
 		: message;
 
 	$L.error(msg, _category);
@@ -1694,8 +2119,8 @@ function initBoxLangAjax() {
 				} catch (err) {
 					console.error(
 						"[BXUICompat.Bind] Error executing dependent " +
-							dep.dependentId +
-							":",
+						dep.dependentId +
+						":",
 						err,
 					);
 				}
@@ -1710,6 +2135,27 @@ if (document.readyState === "loading") {
 	document.addEventListener("DOMContentLoaded", initBoxLangAjax);
 } else {
 	initBoxLangAjax();
+}
+
+// ---------------------------------------------------------------------------
+// 5b. Auto-wire CF-style `bind` attributes
+//
+// Deferred to window `load` (or a macrotask when already loaded) so optional
+// scripts such as ajaxproxy.js have installed their bind handlers before any
+// `bindonload` expression executes. Re-runnable via BXUICompat.Bind.scan().
+// ---------------------------------------------------------------------------
+function initBindScan() {
+	try {
+		$C.Bind.scan(document);
+	} catch (err) {
+		$L.error("Bind scan failed: " + err.message, "bind");
+	}
+}
+
+if (document.readyState === "complete") {
+	setTimeout(initBindScan, 0);
+} else {
+	window.addEventListener("load", initBindScan);
 }
 
 // ---------------------------------------------------------------------------

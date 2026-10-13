@@ -15,14 +15,67 @@
 package ortus.boxlang.compat.ui.components;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import ortus.boxlang.compat.ui.BaseIntegrationTest;
 import ortus.boxlang.runtime.scopes.Key;
+import ortus.boxlang.runtime.types.exceptions.CustomException;
 
 public class AjaxProxyTest extends BaseIntegrationTest {
+
+	private static final Path FIXTURE_DIR = Paths.get( "./src_test_fixtures_proxy" );
+
+	@BeforeAll
+	public static void setupFixtures() throws IOException {
+		Files.createDirectories( Paths.get( "./myapp/components" ) );
+		Files.writeString( Paths.get( "./myapp/components/UserService.cfc" ), "component { function getData() { return 1; } }" );
+
+		Files.createDirectories( Paths.get( "./services" ) );
+		Files.writeString( Paths.get( "./services/DataService.cfc" ), "component { function getData() { return 1; } }" );
+		Files.writeString( Paths.get( "./services/TestService.cfc" ), "component { function initialize() { return true; } }" );
+
+		Files.writeString( Paths.get( "./mycomponent.cfc" ), "component { function getData() { return 1; } }" );
+		Files.writeString( Paths.get( "./userservice.cfc" ), "component { function getUsers() { return []; } }" );
+
+		Files.createDirectories( Paths.get( "./test" ) );
+		Files.writeString( Paths.get( "./test/Service.cfc" ), "component { function getData() { return 1; } }" );
+
+		Files.writeString( Paths.get( "./BoxSample.bx" ), "class { function getData() { return 1; } }" );
+	}
+
+	@AfterAll
+	public static void teardownFixtures() throws IOException {
+		deleteIfExists( Paths.get( "./myapp" ) );
+		deleteIfExists( Paths.get( "./services" ) );
+		deleteIfExists( Paths.get( "./test" ) );
+		Files.deleteIfExists( Paths.get( "./mycomponent.cfc" ) );
+		Files.deleteIfExists( Paths.get( "./userservice.cfc" ) );
+		Files.deleteIfExists( Paths.get( "./BoxSample.bx" ) );
+	}
+
+	private static void deleteIfExists( Path path ) throws IOException {
+		if ( Files.exists( path ) ) {
+			Files.walk( path )
+			    .sorted( Comparator.reverseOrder() )
+			    .forEach( p -> {
+				    try {
+					    Files.delete( p );
+				    } catch ( IOException ignored ) {
+				    }
+			    } );
+		}
+	}
 
 	@DisplayName( "It can create a CFC proxy with default class name" )
 	@Test
@@ -39,7 +92,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "<script type=\"text/javascript\">" );
 		assertThat( output ).contains( "class UserService" );
-		assertThat( output ).contains( "this.cfcPath = 'myapp.components.UserService'" );
+		assertThat( output ).contains( "this.cfcPath = '/myapp/components/UserService.cfc'" );
 		assertThat( output ).contains( "window.UserService = new UserService()" );
 		assertThat( output ).contains( "async callMethod(methodName, args = {})" );
 		assertThat( output ).contains( "fetch(url, {" );
@@ -59,7 +112,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "class MyDataProxy" );
-		assertThat( output ).contains( "this.cfcPath = 'services.DataService'" );
+		assertThat( output ).contains( "this.cfcPath = '/services/DataService.cfc'" );
 		assertThat( output ).contains( "window.MyDataProxy = new MyDataProxy()" );
 	}
 
@@ -78,7 +131,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "<script type=\"text/javascript\">" );
 		assertThat( output ).contains( "formData.append('method', 'getData')" );
-		assertThat( output ).contains( "formData.append('cfc', 'mycomponent')" );
+		assertThat( output ).contains( "fetch('/mycomponent.cfc'" );
 		assertThat( output ).contains( "formData.append('param1', 'param1')" );
 		assertThat( output ).contains( "formData.append('param2', 'param2')" );
 		assertThat( output ).contains( "handleSuccess(result)" );
@@ -99,7 +152,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "formData.append('method', 'getUsers')" );
-		assertThat( output ).contains( "formData.append('cfc', 'userservice')" );
+		assertThat( output ).contains( "fetch('/userservice.cfc'" );
 		assertThat( output ).contains( "displayUsers(result)" );
 		// Should not contain parameter appends
 		assertThat( output ).doesNotContain( "formData.append('param1'" );
@@ -136,7 +189,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		// Should contain both the proxy class definition and bind execution
 		assertThat( output ).contains( "class TestProxy" );
-		assertThat( output ).contains( "formData.append('cfc', 'services.TestService')" );
+		assertThat( output ).contains( "fetch('/services/TestService.cfc'" );
 	}
 
 	@DisplayName( "It handles non-CFC bind expressions gracefully" )
@@ -175,6 +228,36 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		assertThat( output ).contains( "'X-Requested-With': 'XMLHttpRequest'" );
 		assertThat( output ).contains( "if (!response.ok)" );
 		assertThat( output ).contains( "HTTP ' + response.status + ': ' + response.statusText" );
+	}
+
+	@DisplayName( "It detects BoxLang .bx classes and uses .bx endpoint" )
+	@Test
+	public void testBoxLangClassResolution() {
+		runtime.executeSource(
+		    """
+		    bx:ajaxproxy cfc="BoxSample" {
+		    }
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "this.cfcPath = '/BoxSample.bx'" );
+	}
+
+	@DisplayName( "It throws an error when component cannot be located" )
+	@Test
+	public void testThrowsWhenComponentNotFound() {
+		assertThrows( CustomException.class, () -> {
+			runtime.executeSource(
+			    """
+			    bx:ajaxproxy cfc="non.existent.Component" {
+			    }
+			    """,
+			    context
+			);
+		} );
 	}
 
 	// -------------------------------------------------------------------------

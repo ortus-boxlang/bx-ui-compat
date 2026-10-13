@@ -113,47 +113,6 @@ describe("ajaxproxy.js", () => {
 			});
 		});
 
-		describe("executeBind", () => {
-			it("parses and executes cfc bind expression", async () => {
-				const mockResponse = new Response("result", { status: 200 });
-				vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
-
-				const successCb = vi.fn();
-				proxy.executeBind(
-					"cfc:com.example.Service.getData(arg1,arg2)",
-					successCb,
-				);
-
-				await new Promise((r) => setTimeout(r, 50));
-				expect(successCb).toHaveBeenCalledWith("result");
-				vi.restoreAllMocks();
-			});
-
-			it("rejects non-cfc bind expressions", () => {
-				const errorCb = vi.fn();
-				proxy.executeBind("javascript:alert(1)", null, errorCb);
-				expect(errorCb).toHaveBeenCalled();
-			});
-
-			it("rejects invalid bind expression format", () => {
-				const errorCb = vi.fn();
-				proxy.executeBind("cfc:invalidformat", null, errorCb);
-				expect(errorCb).toHaveBeenCalled();
-			});
-
-			it("handles empty params in bind expression", async () => {
-				const mockResponse = new Response("ok", { status: 200 });
-				vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
-
-				const successCb = vi.fn();
-				proxy.executeBind("cfc:com.Svc.noArgs()", successCb);
-
-				await new Promise((r) => setTimeout(r, 50));
-				expect(successCb).toHaveBeenCalledWith("ok");
-				vi.restoreAllMocks();
-			});
-		});
-
 		describe("getProxy / listProxies / removeProxy", () => {
 			it("getProxy returns a registered proxy", () => {
 				proxy.createCFCProxy("com.test.X", "XProxy");

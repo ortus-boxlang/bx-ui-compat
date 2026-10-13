@@ -19,7 +19,11 @@
 		 */
 		createCFCProxy: function (cfcPath, jsClassName = null) {
 			if (!jsClassName) {
-				jsClassName = cfcPath.split(".").pop();
+				// Derive class name from dotted path (com.example.OrderService) or file path (/path/OrderService.cfc)
+				const base = cfcPath.split("/").pop();
+				jsClassName = base.includes(".") && !/\.(cfc|bx)$/i.test(base)
+					? base.split(".").pop()
+					: base.replace(/\.(cfc|bx)$/i, "");
 			}
 
 			// Don't create if already exists
@@ -37,16 +41,19 @@
 
 				// Generic method caller using Fetch API
 				async callMethod(methodName, args = {}, options = {}) {
-					const url = options.url || "/index.cfm";
+					const url = options.url || this.cfcPath;
 					const formData = new FormData();
 					formData.append("method", methodName);
-					formData.append("cfc", this.cfcPath);
+					formData.append("returnFormat", "json");
 
 					// Add method arguments
-					for (const [key, value] of Object.entries(args)) {
-						if (value !== null && value !== undefined) {
-							formData.append(key, value);
-						}
+					if (args && typeof args === "object") {
+						formData.append(
+							"argumentCollection",
+							window.BXUICompat.JSON
+								? window.BXUICompat.JSON.encode(args)
+								: JSON.stringify(args),
+						);
 					}
 
 					const fetchOptions = {
@@ -116,95 +123,6 @@
 		},
 
 		/**
-		 * Execute a bind expression
-		 */
-		executeBind: function (
-			bindExpression,
-			onSuccess = null,
-			onError = null,
-		) {
-			if (!bindExpression.startsWith("cfc:")) {
-				console.error(
-					"Only CFC bind expressions are supported:",
-					bindExpression,
-				);
-				if (onError)
-					onError(
-						"Unsupported bind expression",
-						new Error("Unsupported bind expression"),
-					);
-				return;
-			}
-
-			// Parse bind expression: cfc:component.method(param1,param2)
-			const cfcCall = bindExpression.replace("cfc:", "");
-			const methodStart = cfcCall.indexOf(".");
-			const paramsStart = cfcCall.indexOf("(");
-
-			if (methodStart === -1 || paramsStart === -1) {
-				console.error(
-					"Invalid bind expression format:",
-					bindExpression,
-				);
-				if (onError)
-					onError(
-						"Invalid bind expression format",
-						new Error("Invalid format"),
-					);
-				return;
-			}
-
-			const cfcName = cfcCall.substring(0, methodStart);
-			const methodName = cfcCall.substring(methodStart + 1, paramsStart);
-			let params = "";
-
-			if (paramsStart < cfcCall.length - 1) {
-				params = cfcCall.substring(paramsStart + 1, cfcCall.length - 1);
-			}
-
-			// Parse parameters
-			const args = {};
-			if (params.trim()) {
-				const paramList = params.split(",");
-				paramList.forEach((param, index) => {
-					const trimmedParam = param.trim();
-					if (trimmedParam) {
-						args[`param${index + 1}`] = trimmedParam;
-					}
-				});
-			}
-
-			// Execute the call
-			const formData = new FormData();
-			formData.append("method", methodName);
-			formData.append("cfc", cfcName);
-
-			Object.keys(args).forEach((key) => {
-				formData.append(key, args[key]);
-			});
-
-			BoxLangAjax.utils
-				.fetchContent("/index.cfm", {
-					method: "POST",
-					body: formData,
-					headers: {
-						"X-Requested-With": "XMLHttpRequest",
-					},
-				})
-				.then((result) => {
-					if (onSuccess && typeof onSuccess === "function") {
-						onSuccess(result);
-					}
-				})
-				.catch((error) => {
-					console.error("Bind execution failed:", error);
-					if (onError && typeof onError === "function") {
-						onError(error.message || "Unknown error", error);
-					}
-				});
-		},
-
-		/**
 		 * Get or create proxy by name
 		 */
 		getProxy: function (proxyName) {
@@ -233,141 +151,6 @@
 		},
 	};
 
-	// Enhanced form submission with AJAX proxy
-	function enhanceProxyForms() {
-		document
-			.querySelectorAll("form[data-cfc-proxy]")
-			.forEach(function (form) {
-				form.addEventListener("submit", function (event) {
-					event.preventDefault();
-
-					const cfcPath = form.dataset.cfcProxy;
-					const method = form.dataset.cfcMethod || "processForm";
-					const successCallback = form.dataset.successCallback;
-					const errorCallback = form.dataset.errorCallback;
-
-					if (!cfcPath) {
-						console.error("No CFC path specified for proxy form");
-						return;
-					}
-
-					// Get or create proxy
-					let proxy =
-						BoxLangAjax.components.ajaxproxy.getProxy(cfcPath);
-					if (!proxy) {
-						proxy =
-							BoxLangAjax.components.ajaxproxy.createCFCProxy(
-								cfcPath,
-							);
-					}
-
-					// Collect form data
-					const formData = new FormData(form);
-					const args = {};
-					for (const [key, value] of formData.entries()) {
-						args[key] = value;
-					}
-
-					// Submit via proxy
-					proxy.call(
-						method,
-						args,
-						function (result) {
-							if (successCallback && window[successCallback]) {
-								window[successCallback](result, form);
-							} else {
-								console.debug(
-									"Form submitted successfully:",
-									result,
-								);
-							}
-						},
-						function (error) {
-							if (errorCallback && window[errorCallback]) {
-								window[errorCallback](error, form);
-							} else {
-								console.error("Form submission failed:", error);
-							}
-						},
-					);
-				});
-			});
-	}
-
-	// Auto-execute bind expressions on page load
-	function executePageBinds() {
-		document
-			.querySelectorAll("[data-bind-expression]")
-			.forEach(function (element) {
-				const bindExpr = element.dataset.bindExpression;
-				const successCallback = element.dataset.bindSuccess;
-				const errorCallback = element.dataset.bindError;
-				const delay = parseInt(element.dataset.bindDelay) || 0;
-
-				setTimeout(function () {
-					BoxLangAjax.components.ajaxproxy.executeBind(
-						bindExpr,
-						successCallback ? window[successCallback] : null,
-						errorCallback ? window[errorCallback] : null,
-					);
-				}, delay);
-			});
-	}
-
-	// Set up periodic bind execution
-	function setupPeriodicBinds() {
-		document
-			.querySelectorAll("[data-bind-interval]")
-			.forEach(function (element) {
-				const bindExpr = element.dataset.bindExpression;
-				const interval = parseInt(element.dataset.bindInterval) * 1000; // Convert to milliseconds
-				const successCallback = element.dataset.bindSuccess;
-				const errorCallback = element.dataset.bindError;
-
-				if (bindExpr && interval > 0) {
-					setInterval(function () {
-						BoxLangAjax.components.ajaxproxy.executeBind(
-							bindExpr,
-							successCallback ? window[successCallback] : null,
-							errorCallback ? window[errorCallback] : null,
-						);
-					}, interval);
-				}
-			});
-	}
-
-	// Global error handler for proxy calls
-	function setupProxyErrorHandling() {
-		// Override the default proxy error handling to be more user-friendly
-		if (!window.BoxLangProxyErrorHandler) {
-			window.BoxLangProxyErrorHandler = function (error, context = {}) {
-				console.error("BoxLang Proxy Error:", error, context);
-
-				// Dispatch global error event
-				const errorEvent = new CustomEvent("boxlang-proxy-error", {
-					detail: { error: error, context: context },
-					bubbles: true,
-				});
-				document.dispatchEvent(errorEvent);
-			};
-		}
-	}
-
-	// Initialize AJAX proxy enhancements
-	function initAjaxProxy() {
-		enhanceProxyForms();
-		executePageBinds();
-		setupPeriodicBinds();
-		setupProxyErrorHandling();
-	}
-
-	// Initialize when DOM is ready
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", initAjaxProxy);
-	} else {
-		initAjaxProxy();
-	}
-
 	// -----------------------------------------------------------------------
 	// Expose BXUICompat.AjaxProxy public facade
 	// -----------------------------------------------------------------------
@@ -391,25 +174,47 @@
 		 * Invoke a method on a proxy object.
 		 */
 		invoke: function (proxyObj, methodName, token, args, context) {
-			var formData = new FormData();
-			formData.append("method", methodName);
-			formData.append("cfc", proxyObj.cfcPath || "");
-			if (token) formData.append("_cf_ajaxproxytoken", token);
+			var targetUrl = proxyObj.cfcPath;
+			var httpMethod = (proxyObj.httpMethod || "POST").toUpperCase();
 
+			var params = "method=" + encodeURIComponent(methodName) + "&returnFormat=json";
+			if (token) {
+				params += "&_cf_ajaxproxytoken=" + encodeURIComponent(token);
+			}
 			if (args) {
-				formData.append(
-					"argumentCollection",
-					window.BXUICompat.JSON.encode(args),
-				);
+				var jsonArgs = window.BXUICompat.JSON
+					? window.BXUICompat.JSON.encode(args)
+					: JSON.stringify(args);
+				params += "&argumentCollection=" + encodeURIComponent(jsonArgs);
+			}
+
+			var fetchUrl = targetUrl;
+			var fetchOptions = {
+				method: httpMethod,
+				headers: { "X-Requested-With": "XMLHttpRequest" },
+			};
+
+			if (httpMethod === "POST") {
+				fetchOptions.headers["Content-Type"] =
+					"application/x-www-form-urlencoded";
+				fetchOptions.body = params;
+			} else {
+				fetchUrl += (fetchUrl.indexOf("?") === -1 ? "?" : "&") + params;
 			}
 
 			return BoxLangAjax.utils
-				.fetchContent(proxyObj.cfcPath || "/index.cfm", {
-					method: "POST",
-					body: formData,
-					headers: { "X-Requested-With": "XMLHttpRequest" },
-				})
+				.fetchContent(fetchUrl, fetchOptions)
 				.then(function (data) {
+					// Decode JSON string if returnFormat is json (CF endpoints often return text/html Content-Type)
+					if (typeof data === "string") {
+						try {
+							data = window.BXUICompat.JSON
+								? window.BXUICompat.JSON.decode(data)
+								: JSON.parse(data);
+						} catch (e) {
+							// Leave as string if not valid JSON
+						}
+					}
 					if (proxyObj.callbackHandler)
 						proxyObj.callbackHandler(data, context);
 					return data;

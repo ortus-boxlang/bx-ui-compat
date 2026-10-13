@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CF-style `bind` attribute auto-wiring in `ajax-core.js`. Plain HTML elements carrying a
+  `bind` attribute (e.g. `<cfselect bind="cfc:...">` emitted by bx-ui-forms) are now wired
+  up client-side on page load - parsing `cfc:` / `url:` / `javascript:` / local binds,
+  registering listeners on referenced controls, populating `ColdFusion.bindHandlerCache`,
+  and honouring `bindonload`.
+- `BXUICompat.Bind.parseBindExpression()`, `BXUICompat.Bind.bindElement()` and the
+  re-runnable `BXUICompat.Bind.scan(root)` for AJAX content swaps.
+- `form`, `input`, and `select` tag support in `<bx:ajaximport>`; these tags import the
+  AJAX bind runtime (`ajax-core.js` + `ajaxproxy.js`).
+
+### Fixed
+
+- Core `ajax-core.css` / `ajax-core.js` assets are now emitted only once per request.
+- `<select>` population falls back to the first two query columns when no value/display
+  columns have been registered (CF parity for untyped CFC bind results).
+
+## [1.0.7] - 2026-08-31
+
 ## [1.0.7] - 2026-08-31
 
 ## [1.0.6] - 2026-08-28

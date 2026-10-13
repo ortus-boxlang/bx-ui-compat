@@ -255,6 +255,65 @@ Imports JavaScript and CSS files required for BoxLang AJAX tags and features
 | `scriptSrc` | string | "/bx-ui-compat/js" | URL of the directory containing JavaScript files |
 | `params` | string | "" | Parameters to pass, such as API keys |
 
+Supported `tags` values: `div`, `form`, `grid`, `input`, `layout`, `pod`, `progressbar`, `select`, `tooltip`, `window`.
+
+The `form`, `input`, and `select` tags ship no script of their own. They import the AJAX
+bind runtime (`ajax-core.js` + `ajaxproxy.js`) so sibling modules such as
+[bx-ui-forms](https://github.com/ortus-boxlang/bx-ui-forms) can enable CFC binds with a
+single call:
+
+```xml
+<bx:ajaximport tags="form" />
+```
+
+### CF `bind` Attribute Auto-Wiring
+
+Plain HTML elements carrying a `bind` attribute are wired up automatically on page load -
+no server-side registration script is required. This provides CFML-compatible behaviour for
+`<cfselect bind="cfc:...">`, `<cfdiv bind="...">`, and hand-written markup alike.
+
+Supported syntaxes:
+
+```
+bind="cfc:component.method({[form:]control[.attr][@event]})"
+bind="url:URL?param={[form:]control[.attr][@event]}"
+bind="javascript:fn({[form:]control[.attr][@event]})"
+bind="{control}"                /* local bind */
+```
+
+On window `load` the runtime:
+
+1. Defaults the element's `id` to its `name` (CF parity) so the bind target is addressable.
+2. Parses the bind expression and registers listeners (default `change`, or the trailing
+   `@event`) on every referenced control.
+3. Populates `BXUICompat.bindHandlerCache[target]`, which is aliased as
+   `ColdFusion.bindHandlerCache[target]`, so manual triggers keep working:
+
+```html
+<input name="searchTerm"
+    onfocus="javascript:ColdFusion.bindHandlerCache['results'].call();">
+
+<select name="results" bind="cfc:myService.getOptions({searchTerm})" bindonload="true"></select>
+```
+
+4. Executes the expression immediately when `bindonload` is truthy.
+
+For untyped CFC bind results populating a `<select>`, the first query column is used as the
+option value and the second as the display. When the columns are known ahead of time,
+register them explicitly from an inline script:
+
+```html
+<script>
+    BXUICompat.initSelect('results', 'optionId', 'optionLabel', []);
+</script>
+```
+
+After swapping AJAX content that contains new `bind` elements, re-run the scanner:
+
+```js
+BXUICompat.Bind.scan(document.getElementById('myContainer'));
+```
+
 ### UI Components
 
 #### 🎨 `<bx:pod>` Component

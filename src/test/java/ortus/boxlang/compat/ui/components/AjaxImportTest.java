@@ -320,4 +320,66 @@ public class AjaxImportTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "window.js" );
 	}
+
+	@DisplayName( "It imports the AJAX bind runtime for a form tag" )
+	@Test
+	public void testFormTagImportsBindRuntime() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="form" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+
+		// The form tag ships no script of its own - it needs the bind runtime
+		assertThat( output ).contains( "ajax-core.js" );
+		assertThat( output ).contains( "ajaxproxy.js" );
+		assertThat( output ).contains( "ajax-core.css" );
+
+		// It must not emit non-existent form assets
+		assertThat( output ).doesNotContain( "form.js" );
+		assertThat( output ).doesNotContain( "form.css" );
+
+		// Nor should unrelated component assets be pulled in
+		assertThat( output ).doesNotContain( "grid.js" );
+		assertThat( output ).doesNotContain( "pod.js" );
+	}
+
+	@DisplayName( "It imports the AJAX bind runtime for select and input tags" )
+	@Test
+	public void testSelectAndInputTagsImportBindRuntime() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="select,input" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String output = variables.getAsString( Key.of( "result" ) );
+		assertThat( output ).contains( "ajax-core.js" );
+		assertThat( output ).contains( "ajaxproxy.js" );
+		assertThat( output ).doesNotContain( "select.js" );
+		assertThat( output ).doesNotContain( "input.js" );
+	}
+
+	@DisplayName( "It imports form assets only once per request" )
+	@Test
+	public void testFormImportIsDeduped() {
+		runtime.executeSource(
+		    """
+		    bx:ajaximport tags="form" {}
+		    bx:ajaximport tags="form" {}
+		    result = getBoxContext().getBuffer().toString()
+		    """,
+		    context
+		);
+
+		String	output	= variables.getAsString( Key.of( "result" ) );
+		long	count	= output.split( "ajaxproxy\\.js", -1 ).length - 1;
+		assertThat( count ).isEqualTo( 1L );
+	}
 }

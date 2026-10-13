@@ -7,7 +7,7 @@
 @BoxComponent( "AjaxProxy" )
 @AllowsBody( false )
 @RequiresBody( false )
-class{
+class extends="BaseUIComponent" {
 
 	/**
 	 * The AjaxProxy UI component
@@ -70,26 +70,23 @@ class{
 	 */
 	private function generateCFCProxy( required attributes ){
 		var cfcPath = attributes.cfc;
+		var resolvedUrl = resolveComponentEndpoint( cfcPath );
 		var jsClassName = len( attributes.jsclassname ) ? attributes.jsclassname : listLast( cfcPath, "." );
 
 		var script = "
 		// BoxLang AJAX Proxy for CFC: #cfcPath#
 		class #jsClassName# {
 			constructor() {
-				this.cfcPath = '#cfcPath#';
+				this.cfcPath = '#resolvedUrl#';
 			}
 
 			// Generic method caller using Fetch API
 			async callMethod(methodName, args = {}) {
-				const url = '/index.cfm'; // Default BoxLang handler
+				const url = this.cfcPath;
 				const formData = new FormData();
 				formData.append('method', methodName);
-				formData.append('cfc', this.cfcPath);
-				
-				// Add method arguments
-				for (const [key, value] of Object.entries(args)) {
-					formData.append(key, value);
-				}
+				formData.append('returnFormat', 'json');
+				formData.append('argumentCollection', JSON.stringify(args));
 
 				try {
 					const response = await fetch(url, {
@@ -297,12 +294,13 @@ class{
 				params = cfcCall.substring( paramsStart, cfcCall.len() - 1 );
 			}
 
+			var resolvedUrl = resolveComponentEndpoint( cfcName );
 			var script = "
 			(async function() {
 				try {
 					const formData = new FormData();
 					formData.append('method', '#methodName#');
-					formData.append('cfc', '#cfcName#');
+					formData.append('returnFormat', 'json');
 					";
 
 			if( len( params ) > 0 ){
@@ -314,7 +312,7 @@ class{
 			}
 
 			script &= "
-					const response = await fetch('/index.cfm', {
+					const response = await fetch('#resolvedUrl#', {
 						method: 'POST',
 						body: formData,
 						headers: {
