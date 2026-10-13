@@ -241,12 +241,19 @@ class{
 					cfcMethod = mid( cfcExpr, dotPos + 1, parenPos - dotPos - 1 );
 				}
 
+				var cfcUrl = "/" & replace( cfcPath, ".", "/", "all" );
+				var bxFile = expandPath( cfcUrl & ".bx" );
+				if( len( bxFile ) && fileExists( bxFile ) ){
+					cfcUrl &= ".bx";
+				} else {
+					cfcUrl &= ".cfc";
+				}
+
 				script &= "state._fetchProgress = function(){";
 				script &= "  var formData = new FormData();";
 				script &= "  formData.append('method', '#encodeForJavaScript( cfcMethod )#');";
-				script &= "  formData.append('cfc', '#encodeForJavaScript( cfcPath )#');";
 				script &= "  formData.append('returnformat', 'json');";
-				script &= "  return fetch('/index.cfm', {method:'POST',body:formData,headers:{'X-Requested-With':'XMLHttpRequest'}})";
+				script &= "  return fetch('#cfcUrl#', {method:'POST',body:formData,headers:{'X-Requested-With':'XMLHttpRequest'}})";
 				script &= "    .then(function(r){ return r.json(); })";
 				script &= "    .then(function(data){ return {status: parseFloat(data.STATUS || data.status || 0), message: data.MESSAGE || data.message || ''}; });";
 				script &= "};";

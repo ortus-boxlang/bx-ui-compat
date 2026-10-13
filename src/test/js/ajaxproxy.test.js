@@ -113,44 +113,21 @@ describe("ajaxproxy.js", () => {
 			});
 		});
 
-		describe("executeBind", () => {
-			it("parses and executes cfc bind expression", async () => {
-				const mockResponse = new Response("result", { status: 200 });
-				vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
-
-				const successCb = vi.fn();
-				proxy.executeBind(
-					"cfc:com.example.Service.getData(arg1,arg2)",
-					successCb,
+		describe("resolveUrl", () => {
+			it("resolves dotted packages to .cfc paths with leading slash", () => {
+				expect(proxy.resolveUrl("services.UserService")).toBe(
+					"/services/UserService.cfc",
 				);
-
-				await new Promise((r) => setTimeout(r, 50));
-				expect(successCb).toHaveBeenCalledWith("result");
-				vi.restoreAllMocks();
+				expect(proxy.resolveUrl("myService")).toBe("/myService.cfc");
 			});
 
-			it("rejects non-cfc bind expressions", () => {
-				const errorCb = vi.fn();
-				proxy.executeBind("javascript:alert(1)", null, errorCb);
-				expect(errorCb).toHaveBeenCalled();
-			});
-
-			it("rejects invalid bind expression format", () => {
-				const errorCb = vi.fn();
-				proxy.executeBind("cfc:invalidformat", null, errorCb);
-				expect(errorCb).toHaveBeenCalled();
-			});
-
-			it("handles empty params in bind expression", async () => {
-				const mockResponse = new Response("ok", { status: 200 });
-				vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
-
-				const successCb = vi.fn();
-				proxy.executeBind("cfc:com.Svc.noArgs()", successCb);
-
-				await new Promise((r) => setTimeout(r, 50));
-				expect(successCb).toHaveBeenCalledWith("ok");
-				vi.restoreAllMocks();
+			it("preserves paths ending in .cfc or .bx", () => {
+				expect(proxy.resolveUrl("/custom/path.cfc")).toBe(
+					"/custom/path.cfc",
+				);
+				expect(proxy.resolveUrl("custom/path.bx")).toBe(
+					"/custom/path.bx",
+				);
 			});
 		});
 

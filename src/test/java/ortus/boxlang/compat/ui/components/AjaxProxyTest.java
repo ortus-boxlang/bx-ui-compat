@@ -39,7 +39,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "<script type=\"text/javascript\">" );
 		assertThat( output ).contains( "class UserService" );
-		assertThat( output ).contains( "this.cfcPath = 'myapp.components.UserService'" );
+		assertThat( output ).contains( "this.cfcPath = '/myapp/components/UserService.cfc'" );
 		assertThat( output ).contains( "window.UserService = new UserService()" );
 		assertThat( output ).contains( "async callMethod(methodName, args = {})" );
 		assertThat( output ).contains( "fetch(url, {" );
@@ -59,7 +59,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "class MyDataProxy" );
-		assertThat( output ).contains( "this.cfcPath = 'services.DataService'" );
+		assertThat( output ).contains( "this.cfcPath = '/services/DataService.cfc'" );
 		assertThat( output ).contains( "window.MyDataProxy = new MyDataProxy()" );
 	}
 
@@ -78,7 +78,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "<script type=\"text/javascript\">" );
 		assertThat( output ).contains( "formData.append('method', 'getData')" );
-		assertThat( output ).contains( "formData.append('cfc', 'mycomponent')" );
+		assertThat( output ).contains( "fetch('/mycomponent.cfc'" );
 		assertThat( output ).contains( "formData.append('param1', 'param1')" );
 		assertThat( output ).contains( "formData.append('param2', 'param2')" );
 		assertThat( output ).contains( "handleSuccess(result)" );
@@ -99,7 +99,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 
 		String output = variables.getAsString( Key.of( "result" ) );
 		assertThat( output ).contains( "formData.append('method', 'getUsers')" );
-		assertThat( output ).contains( "formData.append('cfc', 'userservice')" );
+		assertThat( output ).contains( "fetch('/userservice.cfc'" );
 		assertThat( output ).contains( "displayUsers(result)" );
 		// Should not contain parameter appends
 		assertThat( output ).doesNotContain( "formData.append('param1'" );
@@ -136,7 +136,7 @@ public class AjaxProxyTest extends BaseIntegrationTest {
 		String output = variables.getAsString( Key.of( "result" ) );
 		// Should contain both the proxy class definition and bind execution
 		assertThat( output ).contains( "class TestProxy" );
-		assertThat( output ).contains( "formData.append('cfc', 'services.TestService')" );
+		assertThat( output ).contains( "fetch('/services/TestService.cfc'" );
 	}
 
 	@DisplayName( "It handles non-CFC bind expressions gracefully" )
